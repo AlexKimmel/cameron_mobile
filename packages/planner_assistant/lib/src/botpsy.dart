@@ -2,23 +2,25 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:llamadart/llamadart.dart';
 import 'package:planner/planner.dart';
 
+import 'model_storage.dart';
+
 class BotPsyAssistant implements PlannerAssistant {
-  BotPsyAssistant({required this._modelDirectory, this._background = false});
+  BotPsyAssistant({
+    required Future<String> Function() modelDirectory,
+    this._background = false,
+  }) {
+    _storage = ModelStorage(modelDirectory, _validateModel, _releaseModel);
+  }
 
-  static const modelFilename = 'botpsy-0.8b-q4_k_m-imat.gguf';
-  static const _modelBytes = 529296960;
-  static const _modelDigest =
-      '482db2dfdbc8ab7db3d3216fd8ef071d7381dd8547aff9933bc03312839d4d83';
-  static const _modelUrl =
-      'https://huggingface.co/qvac/BotPsy-0.8B-GGUFs/resolve/main/$modelFilename';
-
-  final Future<String> Function() _modelDirectory;
   final bool _background;
+  late final ModelStorage _storage;
   LlamaEngine? _engine;
+  String? _loadedPath;
+
+  AssistantModelLibrary get models => _storage;
 
   @override
   bool get supported =>
@@ -28,85 +30,78 @@ class BotPsyAssistant implements PlannerAssistant {
       Platform.isLinux ||
       Platform.isWindows;
 
-  Future<File> _file() async =>
-      File('${await _modelDirectory()}${Platform.pathSeparator}$modelFilename');
+  @override
+  Future<bool> isInstalled() async =>
+      _storage.installed(await _storage.selected());
 
   @override
-  Future<bool> isInstalled() async {
-    final file = await _file();
-    return await file.exists() && await file.length() == _modelBytes;
-  }
+  Future<void> install(void Function(double? fraction) onProgress) async =>
+      _storage.downloadModel(await _storage.selected(), onProgress);
 
-  @override
-  Future<void> install(void Function(double? fraction) onProgress) async {
-    if (await isInstalled()) return;
-    final file = await _file();
-    await file.parent.create(recursive: true);
-    final partial = File('${file.path}.part');
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 30);
-    try {
-      final response = await (await client.getUrl(Uri.parse(_modelUrl)))
-          .close();
-      if (response.statusCode != HttpStatus.ok) {
-        throw FileSystemException(
-          'Model download returned HTTP ${response.statusCode}.',
-        );
-      }
-      var received = 0;
-      var lastPercent = -1;
-      final stream = response.timeout(const Duration(seconds: 45)).map((chunk) {
-        received += chunk.length;
-        if (received > _modelBytes) {
-          throw const FileSystemException(
-            'Model download has an unexpected size.',
-          );
-        }
-        final percent = received * 100 ~/ _modelBytes;
-        if (percent != lastPercent) {
-          lastPercent = percent;
-          onProgress(percent / 100);
-        }
-        return chunk;
-      });
-      final sink = partial.openWrite();
-      try {
-        await sink.addStream(stream);
-      } finally {
-        await sink.close();
-      }
-      onProgress(null);
-      if (received != _modelBytes ||
-          (await sha256.bind(partial.openRead()).first).toString() !=
-              _modelDigest) {
-        throw const FileSystemException(
-          'Model download failed its integrity check.',
-        );
-      }
-      await partial.rename(file.path);
-    } finally {
-      client.close(force: true);
-      if (await partial.exists()) await partial.delete();
-    }
-  }
-
-  Future<LlamaEngine> _load() async {
-    if (_engine case final engine?) return engine;
-    if (!await isInstalled()) throw StateError('Install BotPsy first.');
+  Future<LlamaEngine> _open(File file) async {
     final engine = LlamaEngine(LlamaBackend());
     try {
       await engine.setModel(
-        LlamaModel(ModelSource.path((await _file()).path)),
+        LlamaModel(ModelSource.path(file.path)),
         params: _background
             ? const ModelParams(contextSize: 4096, device: ComputeDevice.cpu)
             : const ModelParams(contextSize: 8192),
       );
-      _engine = engine;
       return engine;
     } catch (_) {
       await engine.dispose();
       rethrow;
     }
+  }
+
+  Future<void> _validateModel(File file) async {
+    LlamaEngine? engine;
+    try {
+      engine = await _open(file);
+      final metadata = await engine.getMetadata();
+      final template = await engine.chatTemplate(
+        const [
+          LlamaChatMessage.fromText(
+            role: LlamaChatRole.user,
+            text: 'Create a task.',
+          ),
+        ],
+        tools: [_tools.first],
+        includeTokenCount: false,
+      );
+      if (metadata['tokenizer.chat_template']?.contains('tools') != true ||
+          !template.prompt.contains(_tools.first.name)) {
+        throw const FormatException(
+          'Choose a GGUF with a tool-calling chat template.',
+        );
+      }
+    } on FormatException {
+      rethrow;
+    } catch (_) {
+      throw const FormatException(
+        'This device could not load that GGUF model.',
+      );
+    } finally {
+      await engine?.dispose();
+    }
+  }
+
+  Future<void> _releaseModel(File file) async {
+    if (_loadedPath == file.path) await dispose();
+  }
+
+  Future<LlamaEngine> _load() async {
+    final source = await _storage.selected();
+    final file = await _storage.file(source);
+    if (_engine case final engine? when _loadedPath == file.path) return engine;
+    await dispose();
+    if (!await _storage.installed(source)) {
+      throw StateError('Download an assistant model first.');
+    }
+    final engine = await _open(file);
+    _engine = engine;
+    _loadedPath = file.path;
+    return engine;
   }
 
   @override
@@ -189,6 +184,7 @@ A date defaults to today when none is given. Use device tools only when the user
   Future<void> dispose() async {
     await _engine?.dispose();
     _engine = null;
+    _loadedPath = null;
   }
 }
 

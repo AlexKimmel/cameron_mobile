@@ -6,6 +6,8 @@ class BotPsyAssistant implements PlannerAssistant {
     bool background = false,
   });
 
+  AssistantModelLibrary? get models => null;
+
   @override
   bool get supported => false;
 

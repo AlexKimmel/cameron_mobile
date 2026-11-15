@@ -80,7 +80,7 @@ class PlannerTools {
               id: 'ai-${now.microsecondsSinceEpoch}-${tasks.length}',
               title: title,
               day: _date(args['day'] ?? today),
-              notes: args['notes'] == null ? '' : _text(args, 'notes', 1000),
+              notes: _text(args, 'notes', 1000, optional: true),
               priority: TaskPriority.values.byName(priority as String),
               startMinute: args['time'] == null ? null : _time(args['time']),
               duration: duration,
@@ -155,10 +155,16 @@ class PlannerTools {
     return index;
   }
 
-  static String _text(Map<String, Object?> args, String key, int limit) {
+  static String _text(
+    Map<String, Object?> args,
+    String key,
+    int limit, {
+    bool optional = false,
+  }) {
     final value = args[key];
+    if (optional && value == null) return '';
     if (value is! String ||
-        value.trim().isEmpty ||
+        (!optional && value.trim().isEmpty) ||
         value.trim().length > limit) {
       throw FormatException('The assistant returned an invalid $key.');
     }

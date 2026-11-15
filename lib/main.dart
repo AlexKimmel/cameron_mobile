@@ -5,10 +5,12 @@ import 'briefing_jobs.dart';
 import 'platform_services.dart';
 
 void main() {
+  final assistant = createAssistant();
   runApp(
     PlannerApp(
       store: PreferencesTaskStore(),
-      assistant: createAssistant(),
+      assistant: assistant,
+      modelLibrary: assistant.models,
       briefingStore: PreferencesBriefingStore(),
       scheduleBriefings: startBriefingJobs,
       toolStore: PreferencesDeviceToolStore(),

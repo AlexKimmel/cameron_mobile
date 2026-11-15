@@ -82,7 +82,7 @@ class _ToolSettingsScreenState extends State<ToolSettingsScreen> {
               children: [
                 Text(
                   available
-                      ? 'Choose which tools BotPsy can use. You review each action before opening the phone, messaging, or email app. These tools require no additional device permissions.'
+                      ? 'Choose which tools the assistant can use. You review each action before opening the phone, messaging, or email app. These tools require no additional device permissions.'
                       : 'Communication tools are available on Android and iOS.',
                   style: context.type.bodyMedium,
                 ),

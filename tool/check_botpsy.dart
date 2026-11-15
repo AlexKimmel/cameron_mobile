@@ -4,14 +4,14 @@ import 'package:planner/planner.dart';
 import 'package:planner_assistant/planner_assistant.dart';
 
 Future<void> main(List<String> args) async {
-  if (args.length != 1) {
+  if (args.length != 1 && !(args.length == 2 && args.first == '--download')) {
     stderr.writeln(
-      'Usage: dart run tool/check_botpsy.dart <model directory | --download>',
+      'Usage: dart run tool/check_botpsy.dart <model directory | --download [Hugging Face GGUF URL]>',
     );
     exitCode = 64;
     return;
   }
-  final temp = args.single == '--download'
+  final temp = args.first == '--download'
       ? await Directory.systemTemp.createTemp('cameron-botpsy-')
       : null;
   final model = BotPsyAssistant(
@@ -23,8 +23,24 @@ Future<void> main(List<String> args) async {
 
   try {
     if (temp != null) {
-      stdout.writeln('Downloading and verifying BotPsy...');
-      await model.install((_) {});
+      stdout.writeln('Downloading and verifying assistant model...');
+      if (args.length == 2) {
+        final library = model.models;
+        if (library == null) {
+          throw StateError('Model downloads are unavailable.');
+        }
+        await library.addModel(args.last);
+        final path = Uri.parse(args.last).path
+            .replaceFirst('/blob/', '/resolve/');
+        final options = await library.listModels();
+        final option = options.singleWhere(
+          (entry) => entry.source.path == path,
+        );
+        await library.downloadModel(option.source, (_) {});
+        await library.selectModel(option.source);
+      } else {
+        await model.install((_) {});
+      }
     }
 
     final reply = await model.ask(
@@ -68,7 +84,7 @@ Future<void> main(List<String> args) async {
     stdout.writeln('Prepared an SMS draft.');
 
     final summary = await model.ask(
-      'What is my first scheduled task on Monday?',
+      'What is my first scheduled task on Monday, 2026-11-16? Answer with the task title only.',
       tasks: tasks,
       now: now,
       readOnly: true,

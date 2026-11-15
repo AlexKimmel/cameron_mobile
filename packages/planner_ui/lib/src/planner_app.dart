@@ -7,6 +7,7 @@ import 'package:planner/planner.dart';
 
 import 'briefing_screen.dart';
 import 'design.dart';
+import 'model_library_screen.dart';
 import 'planner_dock.dart';
 import 'sheets.dart';
 import 'tasks_screen.dart';
@@ -17,6 +18,7 @@ class PlannerApp extends StatelessWidget {
     super.key,
     required this.store,
     required this.assistant,
+    this.modelLibrary,
     this.toolStore,
     this.openDeviceTool,
     this.deviceTools = communicationTools,
@@ -31,6 +33,7 @@ class PlannerApp extends StatelessWidget {
 
   final TaskStore store;
   final PlannerAssistant assistant;
+  final AssistantModelLibrary? modelLibrary;
   final DeviceToolStore? toolStore;
   final Future<bool> Function(DeviceToolDraft)? openDeviceTool;
   final List<DeviceTool> deviceTools;
@@ -60,6 +63,7 @@ class PlannerApp extends StatelessWidget {
       home: _PlannerHome(
         store: store,
         assistant: assistant,
+        modelLibrary: modelLibrary,
         toolStore: toolStore,
         openDeviceTool: openDeviceTool,
         deviceTools: deviceTools,
@@ -79,6 +83,7 @@ class _PlannerHome extends StatefulWidget {
   const _PlannerHome({
     required this.store,
     required this.assistant,
+    required this.modelLibrary,
     required this.toolStore,
     required this.openDeviceTool,
     required this.deviceTools,
@@ -93,6 +98,7 @@ class _PlannerHome extends StatefulWidget {
 
   final TaskStore store;
   final PlannerAssistant assistant;
+  final AssistantModelLibrary? modelLibrary;
   final DeviceToolStore? toolStore;
   final Future<bool> Function(DeviceToolDraft)? openDeviceTool;
   final List<DeviceTool> deviceTools;
@@ -128,6 +134,7 @@ class _PlannerHomeState extends State<_PlannerHome>
   bool _checking = true;
   bool _installed = false;
   bool _installing = false;
+  bool _managingModels = false;
   bool _asking = false;
   bool _saving = false;
   double? _progress;
@@ -215,6 +222,7 @@ class _PlannerHomeState extends State<_PlannerHome>
         !_installed ||
         !_foreground ||
         _briefingRun != null ||
+        _managingModels ||
         _summary != null ||
         _asking ||
         _startingVoice ||
@@ -293,6 +301,24 @@ class _PlannerHomeState extends State<_PlannerHome>
     );
 
   Future<void> _showDownload() async {
+    final library = widget.modelLibrary;
+    if (library != null) {
+      if (_managingModels) return;
+      setState(() => _managingModels = true);
+      await _briefingRun;
+      if (!mounted) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(builder: (_) => ModelLibraryScreen(library: library)),
+      );
+      if (!mounted) return;
+      setState(() {
+        _managingModels = false;
+        _checking = true;
+      });
+      await _checkModel();
+      return;
+    }
+
     final download = await showPlannerSheet<bool>(
       context,
       Column(
@@ -663,7 +689,7 @@ class _PlannerHomeState extends State<_PlannerHome>
   Widget build(BuildContext context) {
     final voiceAvailable =
         widget.dictation != null && widget.assistant.supported;
-    final busy = _asking || _startingVoice || _installing;
+    final busy = _asking || _startingVoice || _installing || _managingModels;
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -698,6 +724,14 @@ class _PlannerHomeState extends State<_PlannerHome>
                                   : _typePrompt,
                               icon: const Icon(Icons.keyboard_outlined),
                               tooltip: 'Type a request',
+                            ),
+                          if (widget.modelLibrary != null)
+                            IconButton(
+                              onPressed: busy || _checking || _listening
+                                  ? null
+                                  : _showDownload,
+                              icon: const Icon(Icons.memory),
+                              tooltip: 'Assistant models',
                             ),
                           IconButton(
                             onPressed: busy || _listening

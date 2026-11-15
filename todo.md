@@ -1,4 +1,4 @@
-- [ ] Let users import their own compatible Hugging Face model and manage downloaded models. Here have options for the most command and usefull models for this tool calling.
+- [x] Let users import their own compatible Hugging Face model and manage downloaded models. Here have options for the most command and usefull models for this tool calling.
 - [ ] Add more assistant tools, including calendar event reading and task completion actions, with clear user review and permissions.
 - [ ] Fix layout and interaction bugs on the Tasks & Tools page, including task filtering, editing, and completion states.
 - [ ] Make the daily briefing more reactive to changes in tasks and time of day, and let users provide input to shape the briefing.
