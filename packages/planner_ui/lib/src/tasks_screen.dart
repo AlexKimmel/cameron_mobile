@@ -26,6 +26,7 @@ class TasksScreen extends StatelessWidget {
     required this.tasks,
     required this.today,
     required this.filter,
+    required this.search,
     required this.onFilterChanged,
     required this.canEdit,
     required this.onEdit,
@@ -37,6 +38,7 @@ class TasksScreen extends StatelessWidget {
   final List<PlannerTask> tasks;
   final String today;
   final TaskFilter filter;
+  final TextEditingController search;
   final ValueChanged<TaskFilter> onFilterChanged;
   final bool canEdit;
   final ValueChanged<PlannerTask> onEdit;
@@ -45,7 +47,13 @@ class TasksScreen extends StatelessWidget {
   final void Function(PlannerTask, int) onStepToggle;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ValueListenableBuilder<TextEditingValue>(
+        valueListenable: search,
+        builder: (context, value, _) => _buildTasks(context, value.text),
+      );
+
+  Widget _buildTasks(BuildContext context, String query) {
     final filterMotion = context.reduceMotion
         ? ChipAnimationStyle(
             selectAnimation: AnimationStyle.noAnimation,
@@ -53,7 +61,17 @@ class TasksScreen extends StatelessWidget {
             enableAnimation: AnimationStyle.noAnimation,
           )
         : null;
-    final matching = tasks.where(filter.matches).toList();
+    final normalized = query.trim().toLowerCase();
+    final terms = normalized.isEmpty
+        ? const <String>[]
+        : normalized.split(RegExp(r'\s+'));
+    final searching = terms.isNotEmpty;
+    final matching = tasks.where((task) {
+      if (!filter.matches(task)) return false;
+      if (!searching) return true;
+      final text = '${task.title}\n${task.notes}'.toLowerCase();
+      return terms.every(text.contains);
+    }).toList();
     final open = matching.where((task) => !task.done).toList()
       ..sort((a, b) {
         final dateOrder = a.day.compareTo(b.day);
@@ -88,6 +106,23 @@ class TasksScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        TextField(
+          controller: search,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            labelText: 'Search tasks',
+            hintText: 'Search titles and notes',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: query.isEmpty
+                ? null
+                : IconButton(
+                    onPressed: search.clear,
+                    tooltip: 'Clear task search',
+                    icon: const Icon(Icons.clear),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 4,
@@ -107,7 +142,11 @@ class TasksScreen extends StatelessWidget {
         if (matching.isEmpty)
           Panel(
             child: Text(
-              filter == TaskFilter.all ? 'No tasks yet' : 'No matching tasks',
+              searching
+                  ? 'No tasks match your search'
+                  : filter == TaskFilter.all
+                  ? 'No tasks yet'
+                  : 'No matching tasks',
               style: context.type.bodyMedium,
             ),
           )
@@ -117,33 +156,37 @@ class TasksScreen extends StatelessWidget {
             for (final entry in overdue) ..._dateGroup(context, entry),
             const SizedBox(height: 8),
           ],
-          SectionHeading(
-            'Today',
-            trailing: focus > 0
-                ? Pill(
-                    '${durationLabel(focus)} focus',
-                    icon: Icons.timer_outlined,
-                  )
-                : null,
-          ),
-          const SizedBox(height: 8),
-          if (scheduled.isEmpty)
-            Panel(
-              child: Text('No tasks today', style: context.type.bodyMedium),
+          if (!searching || scheduled.isNotEmpty) ...[
+            SectionHeading(
+              'Today',
+              trailing: focus > 0
+                  ? Pill(
+                      '${durationLabel(focus)} focus',
+                      icon: Icons.timer_outlined,
+                    )
+                  : null,
             ),
-          for (final task in scheduled) _card(task),
+            const SizedBox(height: 8),
+            if (scheduled.isEmpty)
+              Panel(
+                child: Text('No tasks today', style: context.type.bodyMedium),
+              ),
+            for (final task in scheduled) _card(task),
+          ],
           if (upcoming.isNotEmpty) ...[
             const SizedBox(height: 16),
             const SectionHeading('Upcoming'),
             for (final entry in upcoming) ..._dateGroup(context, entry),
           ],
-          if (doneToday.isNotEmpty) _completed(context, 'Completed', doneToday),
+          if (doneToday.isNotEmpty)
+            _completed(context, 'Completed', doneToday, expanded: searching),
           if (doneEarlier.isNotEmpty)
             _completed(
               context,
               'Previously completed',
               doneEarlier,
               showDate: true,
+              expanded: searching,
             ),
         ],
       ],
@@ -185,12 +228,14 @@ class TasksScreen extends StatelessWidget {
     String title,
     List<PlannerTask> tasks, {
     bool showDate = false,
+    bool expanded = false,
   }) => Padding(
     padding: const EdgeInsets.only(top: 8),
     child: Panel(
       padding: EdgeInsets.zero,
       child: ExpansionTile(
-        key: PageStorageKey(title),
+        key: PageStorageKey((title, expanded)),
+        initiallyExpanded: expanded,
         expansionAnimationStyle: context.reducedMotionStyle,
         leading: Icon(
           Icons.task_alt,

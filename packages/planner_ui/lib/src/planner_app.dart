@@ -128,6 +128,7 @@ class _PlannerHomeState extends State<_PlannerHome>
     with WidgetsBindingObserver {
   late int _tab = widget.initialTab;
   TaskFilter _taskFilter = TaskFilter.all;
+  final _taskSearch = TextEditingController();
   List<PlannerTask>? _tasks;
   late List<String> _activities = widget.initialActivities;
   late String? _summary = widget.initialSummary;
@@ -174,6 +175,7 @@ class _PlannerHomeState extends State<_PlannerHome>
     _finishVoiceTimer?.cancel();
     if (_listening || _startingVoice) unawaited(_cancelDictation());
     _voiceLevel.dispose();
+    _taskSearch.dispose();
     super.dispose();
   }
 
@@ -970,6 +972,7 @@ class _PlannerHomeState extends State<_PlannerHome>
               tasks: visible,
               today: dayKey(_displayTime),
               filter: _taskFilter,
+              search: _taskSearch,
               onFilterChanged: (filter) => setState(() => _taskFilter = filter),
               onReschedule: _reschedule,
               canEdit: !_asking && !_saving && !_listening && !_startingVoice,

@@ -133,6 +133,33 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('Task search matches titles, notes, and completed tasks', (
+    tester,
+  ) async {
+    await tester.pumpWidget(tasksPreview());
+    await tester.pumpAndSettle();
+
+    final search = find.widgetWithText(TextField, 'Search tasks');
+    await tester.enterText(search, 'WEB terracotta');
+    await tester.pumpAndSettle();
+    expect(find.text('Review design tokens with team'), findsOneWidget);
+    expect(find.text('Finalize the on-device benchmark'), findsNothing);
+
+    await tester.enterText(search, 'ENGINEERING');
+    await tester.pumpAndSettle();
+    expect(find.text('Weekly sync with Core Engineering'), findsOneWidget);
+    expect(find.text('Review design tokens with team'), findsNothing);
+
+    await tester.enterText(search, 'nonexistent phrase');
+    await tester.pumpAndSettle();
+    expect(find.text('No tasks match your search'), findsOneWidget);
+    await tester.tap(find.byTooltip('Clear task search'));
+    await tester.pumpAndSettle();
+    expect(find.text('Review design tokens with team'), findsOneWidget);
+    expect(find.text('No tasks match your search'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets(
     'Uses larger targets and honors reduced motion on a narrow screen',
     (tester) async {
@@ -202,7 +229,7 @@ void main() {
         find.bySemanticsLabel('Planner sections').hitTestable(),
         findsNothing,
       );
-      expect(find.byType(TextField), findsNothing);
+      expect(find.text('Review transcript'), findsNothing);
 
       await tester.tap(find.byKey(const ValueKey('listening-wave')));
       await tester.pumpAndSettle();
