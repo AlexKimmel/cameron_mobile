@@ -1,5 +1,4 @@
-- [ ] Let users import their own compatible Hugging Face model and manage downloaded models.
-- [ ] Improve local model response speed and reliability with stricter structured JSON output and validation.
+- [ ] Let users import their own compatible Hugging Face model and manage downloaded models. Here have options for the most command and usefull models for this tool calling.
 - [ ] Add more assistant tools, including calendar event reading and task completion actions, with clear user review and permissions.
 - [ ] Fix layout and interaction bugs on the Tasks & Tools page, including task filtering, editing, and completion states.
 - [ ] Make the daily briefing more reactive to changes in tasks and time of day, and let users provide input to shape the briefing.
@@ -8,7 +7,8 @@
 - [ ] Improve task list organization with stronger date grouping, overdue indicators, and easier rescheduling.
 - [ ] Add clear loading, error, and retry states for model downloads, inference, dictation, and tool handoffs.
 - [ ] Improve accessibility with larger tap targets, useful screen reader labels, and reduced-motion support across animated controls.
-- [ ] Add recurring tasks with flexible schedules and the option to edit one occurrence or the whole series.
+- [ ] Add recurring tasks with flexible schedules and the option to edit one occurrence or the whole series. Here create tool calls for the local llm.
+- [ ] Add notification support. Such that when tasks have exact dates or a new breafing is available notifications are send. 
 - [ ] Add optional local reminders for tasks and upcoming sessions, with snooze and quiet hours.
 - [ ] Show scheduling conflicts and suggest available time slots before moving or adding a session.
 - [ ] Add task search across titles and notes, including completed tasks.
@@ -16,4 +16,3 @@
 - [ ] Add a local backup and restore flow for tasks and settings, with a preview before importing.
 - [ ] Improve first-run onboarding with a sample day, a quick-add action, and the option to set up the assistant later.
 - [ ] Add configurable briefing times and an opt-in notification when a new briefing is ready.
-- [ ] Add physical-device regression tests for offline dictation, background briefings, and phone, SMS, and email handoffs on iOS and Android.
