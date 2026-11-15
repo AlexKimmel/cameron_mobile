@@ -22,21 +22,32 @@ BotPsyAssistant createAssistant({bool background = false}) => BotPsyAssistant(
 class PreferencesBriefingStore implements BriefingStore {
   final _prefs = SharedPreferencesAsync();
 
-  String _key(BriefingSlot slot) => 'planner.briefing.v1.${slot.period.name}';
+  static const _focus = 'planner.briefing.focus';
+
+  String _key(BriefingSlot slot) => 'planner.briefing.v2.${slot.period.name}';
 
   @override
-  Future<String?> read(BriefingSlot slot) async {
+  Future<String?> read(BriefingSlot slot, String input) async {
     final value = await _prefs.getString(_key(slot));
     if (value == null) return null;
     final record = jsonDecode(value) as Map<String, dynamic>;
-    return record['slot'] == slot.id ? record['summary'] as String : null;
+    return record['slot'] == slot.id && record['input'] == input
+        ? record['summary'] as String
+        : null;
   }
 
   @override
-  Future<void> save(BriefingSlot slot, String summary) => _prefs.setString(
-    _key(slot),
-    jsonEncode({'slot': slot.id, 'summary': summary}),
-  );
+  Future<void> save(BriefingSlot slot, String input, String summary) =>
+      _prefs.setString(
+        _key(slot),
+        jsonEncode({'slot': slot.id, 'input': input, 'summary': summary}),
+      );
+
+  @override
+  Future<String> readFocus() async => await _prefs.getString(_focus) ?? '';
+
+  @override
+  Future<void> saveFocus(String focus) => _prefs.setString(_focus, focus);
 }
 
 Future<void> startBriefingJobs() async {

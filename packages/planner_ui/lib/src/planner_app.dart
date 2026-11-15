@@ -129,6 +129,11 @@ class _PlannerHomeState extends State<_PlannerHome>
   late DateTime _displayTime = widget.clock();
   late String? _summarySlot = BriefingSlot.current(_displayTime)?.id;
   Future<void>? _briefingRun;
+  int _briefingRevision = 0;
+  int? _settledBriefing;
+  bool _briefingLoading = false;
+  bool _briefingFailed = false;
+  bool _editingBriefingFocus = false;
   bool _foreground = true;
   final _voiceLevel = ValueNotifier(0.0);
   int _voiceRun = 0;
@@ -179,8 +184,10 @@ class _PlannerHomeState extends State<_PlannerHome>
     final slot = BriefingSlot.current(now)?.id;
     setState(() {
       if (dayKey(_displayTime) != dayKey(now)) _activities = const [];
-      if (_summarySlot != slot || dayKey(_displayTime) != dayKey(now)) {
-        _summary = null;
+      if (_summarySlot != slot ||
+          dayKey(_displayTime) != dayKey(now) ||
+          _displayTime.timeZoneOffset != now.timeZoneOffset) {
+        _invalidateBriefing();
         _summarySlot = slot;
       }
       _displayTime = now;
@@ -217,6 +224,13 @@ class _PlannerHomeState extends State<_PlannerHome>
     await widget.scheduleBriefings?.call();
   }
 
+  void _invalidateBriefing() {
+    if (widget.briefingStore == null) return;
+    _briefingRevision++;
+    _summary = null;
+    _briefingFailed = false;
+  }
+
   Future<void> _refreshBriefing() async {
     final store = widget.briefingStore;
     final tasks = _tasks;
@@ -229,17 +243,18 @@ class _PlannerHomeState extends State<_PlannerHome>
         !_foreground ||
         _briefingRun != null ||
         _managingModels ||
-        _summary != null ||
+        _settledBriefing == _briefingRevision ||
         _asking ||
         _startingVoice ||
         _listening) {
       return;
     }
-    final run = _loadBriefing(store, now, slot, tasks);
+    final revision = _briefingRevision;
+    final run = _loadBriefing(store, now, slot, tasks, revision);
     _briefingRun = run;
     await run;
     _briefingRun = null;
-    if (mounted && BriefingSlot.current(widget.clock())?.id != slot.id) {
+    if (mounted && _briefingRevision != revision) {
       unawaited(_refreshBriefing());
     }
   }
@@ -249,17 +264,62 @@ class _PlannerHomeState extends State<_PlannerHome>
     DateTime now,
     BriefingSlot slot,
     List<PlannerTask> tasks,
+    int revision,
   ) async {
+    setState(() {
+      _briefingLoading = true;
+      _briefingFailed = false;
+    });
+    bool stillCurrent() =>
+        _briefingRevision == revision &&
+        BriefingSlot.current(widget.clock())?.id == slot.id;
     try {
       final text = await BriefingService(
         store: store,
         assistant: widget.assistant,
       ).refresh(now, tasks);
-      if (mounted && _summarySlot == slot.id && text != null) {
-        setState(() => _summary = text);
+      if (mounted && stillCurrent()) {
+        setState(() {
+          _summary = text;
+          _settledBriefing = revision;
+        });
       }
     } catch (error) {
       debugPrint('Could not refresh briefing: $error');
+      if (mounted && stillCurrent()) {
+        setState(() {
+          _briefingFailed = true;
+          _settledBriefing = revision;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _briefingLoading = false);
+    }
+  }
+
+  void _retryBriefing() {
+    setState(_invalidateBriefing);
+    unawaited(_refreshBriefing());
+  }
+
+  Future<void> _editBriefingFocus() async {
+    final store = widget.briefingStore;
+    if (store == null || _editingBriefingFocus) return;
+    setState(() => _editingBriefingFocus = true);
+    try {
+      final original = await store.readFocus();
+      if (!mounted) return;
+      final focus = await showPlannerSheet<String>(
+        context,
+        BriefingFocusSheet(initial: original),
+      );
+      if (!mounted || focus == null || focus == original) return;
+      await store.saveFocus(focus);
+      if (mounted) _retryBriefing();
+    } catch (_) {
+      if (mounted) _message('Could not update briefing focus. Try again.');
+    } finally {
+      if (mounted) setState(() => _editingBriefingFocus = false);
     }
   }
 
@@ -270,6 +330,7 @@ class _PlannerHomeState extends State<_PlannerHome>
         setState(() {
           _tasks = tasks;
           _readFailed = false;
+          _invalidateBriefing();
         });
         unawaited(_refreshBriefing());
       }
@@ -553,6 +614,7 @@ class _PlannerHomeState extends State<_PlannerHome>
     setState(() {
       _tasks = result.tasks;
       if (result.activities.isNotEmpty) {
+        _invalidateBriefing();
         _activities = [
           ...result.activities.reversed,
           ..._activities,
@@ -715,7 +777,10 @@ class _PlannerHomeState extends State<_PlannerHome>
       final updated = update(tasks);
       await widget.store.save(updated);
       if (mounted) {
-        setState(() => _tasks = updated);
+        setState(() {
+          _tasks = updated;
+          _invalidateBriefing();
+        });
         unawaited(_refreshBriefing());
       }
     } catch (_) {
@@ -745,6 +810,11 @@ class _PlannerHomeState extends State<_PlannerHome>
               now: _displayTime,
               tasks: tasks,
               summary: _summary,
+              loading: _briefingLoading,
+              onRetry: _briefingFailed ? _retryBriefing : null,
+              onEditFocus: widget.briefingStore == null || _editingBriefingFocus
+                  ? null
+                  : _editBriefingFocus,
               activities: _activities,
               onEdit: (task) => _edit(task: task),
             )

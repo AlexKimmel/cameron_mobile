@@ -138,6 +138,12 @@ A date defaults to today when none is given. Use device tools only when the user
           'completed_on': ?task.completedOn,
           if (task.startMinute case final minute?) 'time': _time(minute),
           if (task.duration > 0) 'duration_minutes': task.duration,
+          if (readOnly && task.notes.isNotEmpty)
+            'notes': String.fromCharCodes(task.notes.runes.take(100)),
+          if (readOnly && task.steps.isNotEmpty) ...{
+            'completed_steps': task.steps.where((step) => step.done).length,
+            'total_steps': task.steps.length,
+          },
           'priority': task.priority.name,
         },
     ]);

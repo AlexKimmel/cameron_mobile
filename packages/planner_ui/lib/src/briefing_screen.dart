@@ -9,6 +9,9 @@ class BriefingScreen extends StatelessWidget {
     required this.now,
     required this.tasks,
     required this.summary,
+    required this.loading,
+    this.onRetry,
+    this.onEditFocus,
     required this.activities,
     required this.onEdit,
   });
@@ -16,6 +19,9 @@ class BriefingScreen extends StatelessWidget {
   final DateTime now;
   final List<PlannerTask> tasks;
   final String? summary;
+  final bool loading;
+  final VoidCallback? onRetry;
+  final VoidCallback? onEditFocus;
   final List<String> activities;
   final ValueChanged<PlannerTask> onEdit;
 
@@ -32,13 +38,27 @@ class BriefingScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: Pill(
-            MaterialLocalizations.of(context).formatFullDate(now),
-            icon: Icons.today_outlined,
-          ),
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          children: [
+            Pill(
+              MaterialLocalizations.of(context).formatFullDate(now),
+              icon: Icons.today_outlined,
+            ),
+            if (onEditFocus != null)
+              TextButton.icon(
+                onPressed: onEditFocus,
+                icon: const Icon(Icons.tune),
+                label: const Text('Briefing focus'),
+              ),
+          ],
         ),
+        if (loading)
+          const LinearProgressIndicator(semanticsLabel: 'Updating briefing'),
+        if (onRetry != null)
+          TextButton(onPressed: onRetry, child: const Text('Retry briefing')),
         if (summary case final text?) ...[
           const SizedBox(height: 14),
           DecoratedBox(

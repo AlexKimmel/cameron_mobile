@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+
 import 'task.dart';
 import 'tools.dart';
 
@@ -54,8 +58,10 @@ class BriefingSlot {
 }
 
 abstract interface class BriefingStore {
-  Future<String?> read(BriefingSlot slot);
-  Future<void> save(BriefingSlot slot, String summary);
+  Future<String?> read(BriefingSlot slot, String input);
+  Future<void> save(BriefingSlot slot, String input, String summary);
+  Future<String> readFocus();
+  Future<void> saveFocus(String focus);
 }
 
 class BriefingService {
@@ -67,9 +73,6 @@ class BriefingService {
   Future<String?> refresh(DateTime now, List<PlannerTask> tasks) async {
     final slot = BriefingSlot.current(now);
     if (slot == null) return null;
-
-    final existing = await store.read(slot);
-    if (existing != null) return existing;
 
     final today = dayKey(now);
     final tomorrow = dayKey(DateTime(now.year, now.month, now.day + 1));
@@ -85,15 +88,31 @@ class BriefingService {
         .toList();
     if (relevant.isEmpty) return null;
 
+    final focus = (await store.readFocus()).trim();
+    final input = sha256
+        .convert(
+          utf8.encode(
+            jsonEncode([focus, for (final task in relevant) task.toJson()]),
+          ),
+        )
+        .toString();
+    final existing = await store.read(slot, input);
+    if (existing != null) return existing;
+
     final reply = await assistant.ask(
-      '${slot.period.prompt} Use only the planner data. Use at most two short sentences and no heading.',
+      [
+        slot.period.prompt,
+        'Use at most two short sentences and no heading. Use only facts from the planner data.',
+        if (focus.isNotEmpty)
+          'Prioritize this briefing focus when relevant: ${jsonEncode(focus)}.',
+      ].join(' '),
       tasks: relevant,
       now: now,
       readOnly: true,
     );
     final summary = reply.text.trim();
     if (summary.isEmpty) return null;
-    await store.save(slot, summary);
+    await store.save(slot, input, summary);
     return summary;
   }
 }

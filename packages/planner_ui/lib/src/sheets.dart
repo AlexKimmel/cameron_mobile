@@ -254,6 +254,49 @@ class _TaskEditorState extends State<TaskEditor> {
   );
 }
 
+class BriefingFocusSheet extends StatefulWidget {
+  const BriefingFocusSheet({super.key, required this.initial});
+
+  final String initial;
+
+  @override
+  State<BriefingFocusSheet> createState() => _BriefingFocusSheetState();
+}
+
+class _BriefingFocusSheetState extends State<BriefingFocusSheet> {
+  late final _focus = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text('Briefing focus', style: context.type.headlineSmall),
+      const SizedBox(height: 12),
+      TextField(
+        controller: _focus,
+        autofocus: true,
+        minLines: 2,
+        maxLines: 4,
+        maxLength: 280,
+        decoration: const InputDecoration(
+          labelText: 'What should the briefing emphasize?',
+          hintText: 'Upcoming deadlines or unfinished priorities',
+        ),
+      ),
+      FilledButton(
+        onPressed: () => Navigator.pop(context, _focus.text.trim()),
+        child: const Text('Save focus'),
+      ),
+    ],
+  );
+}
+
 class PromptSheet extends StatefulWidget {
   const PromptSheet({super.key});
 

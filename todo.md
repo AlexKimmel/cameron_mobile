@@ -1,7 +1,7 @@
 - [x] Let users import their own compatible Hugging Face model and manage downloaded models. Here have options for the most command and usefull models for this tool calling.
 - [x] Add more assistant tools, including calendar event reading and task completion actions, with clear user review and permissions.
 - [x] Fix layout and interaction bugs on the Tasks & Tools page, including task filtering, editing, and completion states.
-- [ ] Make the daily briefing more reactive to changes in tasks and time of day, and let users provide input to shape the briefing.
+- [x] Make the daily briefing more reactive to changes in tasks and time of day, and let users provide input to shape the briefing.
 - [ ] Improve voice input so the animated listening bubble expands over the tab selectors while recording.
 - [ ] Show the recognized spoken text for review after dictation, with clear edit, submit, and retry actions.
 - [ ] Improve task list organization with stronger date grouping, overdue indicators, and easier rescheduling.
