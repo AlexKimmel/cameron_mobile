@@ -763,6 +763,16 @@ class _PlannerHomeState extends State<_PlannerHome>
     }
   }
 
+  Future<void> _reschedule(PlannerTask task) async {
+    final day = await pickTaskDate(
+      context,
+      now: widget.clock(),
+      initial: DateTime.parse(task.day),
+    );
+    if (!mounted || day == null || dayKey(day) == task.day) return;
+    _updateTask(task, (current) => current.rescheduled(dayKey(day)));
+  }
+
   void _toggle(PlannerTask task) => _updateTask(
     task,
     (current) => current.toggleDone(dayKey(widget.clock())),
@@ -845,6 +855,7 @@ class _PlannerHomeState extends State<_PlannerHome>
               today: dayKey(_displayTime),
               filter: _taskFilter,
               onFilterChanged: (filter) => setState(() => _taskFilter = filter),
+              onReschedule: _reschedule,
               canEdit: !_asking && !_saving && !_listening && !_startingVoice,
               onEdit: (task) => _edit(task: task),
               onToggle: _toggle,

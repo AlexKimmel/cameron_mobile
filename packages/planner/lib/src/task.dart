@@ -54,6 +54,23 @@ class PlannerTask {
     steps: steps,
   );
 
+  PlannerTask rescheduled(
+    String newDay, {
+    int? newStart,
+    TaskOrigin? newOrigin,
+  }) => PlannerTask(
+    id: id,
+    title: title,
+    day: newDay,
+    notes: notes,
+    priority: priority,
+    origin: newOrigin ?? origin,
+    startMinute: newStart ?? startMinute,
+    duration: duration,
+    completedOn: completedOn,
+    steps: steps,
+  );
+
   PlannerTask withSteps(List<TaskStep> steps) => PlannerTask(
     id: id,
     title: title,

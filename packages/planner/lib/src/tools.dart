@@ -113,17 +113,10 @@ class PlannerTools {
           final task = tasks[index];
           final day = _date(args['day']);
           final time = args['time'];
-          tasks[index] = PlannerTask(
-            id: task.id,
-            title: task.title,
-            day: day,
-            notes: task.notes,
-            priority: task.priority,
-            origin: TaskOrigin.tool,
-            startMinute: time == null ? task.startMinute : _time(time),
-            duration: task.duration,
-            completedOn: task.completedOn,
-            steps: task.steps,
+          tasks[index] = task.rescheduled(
+            day,
+            newStart: time == null ? null : _time(time),
+            newOrigin: TaskOrigin.tool,
           );
           activities.add('Moved “${task.title}” to $day');
           changed = true;

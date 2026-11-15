@@ -29,6 +29,7 @@ class TasksScreen extends StatelessWidget {
     required this.onFilterChanged,
     required this.canEdit,
     required this.onEdit,
+    required this.onReschedule,
     required this.onToggle,
     required this.onStepToggle,
   });
@@ -39,26 +40,42 @@ class TasksScreen extends StatelessWidget {
   final ValueChanged<TaskFilter> onFilterChanged;
   final bool canEdit;
   final ValueChanged<PlannerTask> onEdit;
+  final ValueChanged<PlannerTask> onReschedule;
   final ValueChanged<PlannerTask> onToggle;
   final void Function(PlannerTask, int) onStepToggle;
 
   @override
   Widget build(BuildContext context) {
     final matching = tasks.where(filter.matches).toList();
-    final scheduled =
-        matching.where((task) => !task.done && task.day == today).toList()
-          ..sort(
-            (a, b) => (a.startMinute ?? 1440).compareTo(b.startMinute ?? 1440),
-          );
-    final other =
-        matching.where((task) => !task.done && task.day != today).toList()
-          ..sort((a, b) => a.day.compareTo(b.day));
+    final open = matching.where((task) => !task.done).toList()
+      ..sort((a, b) {
+        final dateOrder = a.day.compareTo(b.day);
+        if (dateOrder != 0) return dateOrder;
+        final timeOrder = (a.startMinute ?? 1440).compareTo(
+          b.startMinute ?? 1440,
+        );
+        if (timeOrder != 0) return timeOrder;
+        return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+      });
+    final byDate = <String, List<PlannerTask>>{};
+    for (final task in open) {
+      byDate.putIfAbsent(task.day, () => []).add(task);
+    }
+    final scheduled = byDate.remove(today) ?? const [];
+    final overdue = byDate.entries.where(
+      (entry) => entry.key.compareTo(today) < 0,
+    );
+    final upcoming = byDate.entries.where(
+      (entry) => entry.key.compareTo(today) > 0,
+    );
     final doneToday = matching
         .where((task) => task.completedOn == today)
         .toList();
-    final doneEarlier = matching
-        .where((task) => task.done && task.completedOn != today)
-        .toList();
+    final doneEarlier =
+        matching
+            .where((task) => task.done && task.completedOn != today)
+            .toList()
+          ..sort((a, b) => b.completedOn!.compareTo(a.completedOn!));
     final focus = scheduled.fold(0, (sum, task) => sum + task.duration);
 
     return Column(
@@ -87,6 +104,11 @@ class TasksScreen extends StatelessWidget {
             ),
           )
         else ...[
+          if (overdue.isNotEmpty) ...[
+            const SectionHeading('Overdue', icon: Icons.error_outline),
+            for (final entry in overdue) ..._dateGroup(context, entry),
+            const SizedBox(height: 8),
+          ],
           SectionHeading(
             'Today',
             trailing: focus > 0
@@ -102,27 +124,49 @@ class TasksScreen extends StatelessWidget {
               child: Text('No tasks today', style: context.type.bodyMedium),
             ),
           for (final task in scheduled) _card(task),
-          if (other.isNotEmpty) ...[
+          if (upcoming.isNotEmpty) ...[
             const SizedBox(height: 16),
-            const SectionHeading('Other days'),
-            const SizedBox(height: 8),
-            for (final task in other) _card(task, showDay: true),
+            const SectionHeading('Upcoming'),
+            for (final entry in upcoming) ..._dateGroup(context, entry),
           ],
           if (doneToday.isNotEmpty) _completed(context, 'Completed', doneToday),
           if (doneEarlier.isNotEmpty)
-            _completed(context, 'Previously completed', doneEarlier),
+            _completed(
+              context,
+              'Previously completed',
+              doneEarlier,
+              showDate: true,
+            ),
         ],
       ],
     );
   }
 
-  Widget _card(PlannerTask task, {bool showDay = false}) => Padding(
+  List<Widget> _dateGroup(
+    BuildContext context,
+    MapEntry<String, List<PlannerTask>> group,
+  ) => [
+    Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 6),
+      child: Semantics(
+        header: true,
+        child: Text(
+          MaterialLocalizations.of(context)
+              .formatFullDate(DateTime.parse(group.key)),
+          style: context.type.labelLarge,
+        ),
+      ),
+    ),
+    for (final task in group.value) _card(task),
+  ];
+
+  Widget _card(PlannerTask task) => Padding(
     key: ValueKey(task.id),
     padding: const EdgeInsets.only(bottom: 8),
     child: _TaskCard(
       task: task,
-      showDay: showDay,
       onEdit: canEdit ? () => onEdit(task) : null,
+      onReschedule: canEdit ? () => onReschedule(task) : null,
       onToggle: canEdit ? () => onToggle(task) : null,
       onStepToggle: canEdit ? (index) => onStepToggle(task, index) : null,
     ),
@@ -131,8 +175,9 @@ class TasksScreen extends StatelessWidget {
   Widget _completed(
     BuildContext context,
     String title,
-    List<PlannerTask> tasks,
-  ) => Padding(
+    List<PlannerTask> tasks, {
+    bool showDate = false,
+  }) => Padding(
     padding: const EdgeInsets.only(top: 8),
     child: Panel(
       padding: EdgeInsets.zero,
@@ -159,6 +204,12 @@ class TasksScreen extends StatelessWidget {
                 task.title,
                 style: const TextStyle(decoration: TextDecoration.lineThrough),
               ),
+              subtitle: showDate
+                  ? Text(
+                      MaterialLocalizations.of(context)
+                          .formatShortDate(DateTime.parse(task.completedOn!)),
+                    )
+                  : null,
               onTap: canEdit ? () => onEdit(task) : null,
             ),
         ],
@@ -170,15 +221,15 @@ class TasksScreen extends StatelessWidget {
 class _TaskCard extends StatelessWidget {
   const _TaskCard({
     required this.task,
-    required this.showDay,
     required this.onEdit,
+    required this.onReschedule,
     required this.onToggle,
     required this.onStepToggle,
   });
 
   final PlannerTask task;
-  final bool showDay;
   final VoidCallback? onEdit;
+  final VoidCallback? onReschedule;
   final VoidCallback? onToggle;
   final ValueChanged<int>? onStepToggle;
 
@@ -231,7 +282,6 @@ class _TaskCard extends StatelessWidget {
                         if (high ||
                             task.startMinute != null ||
                             task.duration > 0 ||
-                            showDay ||
                             task.origin != TaskOrigin.manual) ...[
                           const SizedBox(height: 6),
                           Wrap(
@@ -250,12 +300,6 @@ class _TaskCard extends StatelessWidget {
                                 Pill(
                                   durationLabel(task.duration),
                                   icon: Icons.timer_outlined,
-                                ),
-                              if (showDay)
-                                Pill(
-                                  MaterialLocalizations.of(
-                                    context,
-                                  ).formatShortDate(DateTime.parse(task.day)),
                                 ),
                               if (task.origin != TaskOrigin.manual)
                                 Tooltip(
@@ -278,6 +322,11 @@ class _TaskCard extends StatelessWidget {
                     ),
                   ),
                 ),
+              ),
+              IconButton(
+                tooltip: 'Reschedule ${task.title}',
+                onPressed: onReschedule,
+                icon: const Icon(Icons.event_outlined),
               ),
             ],
           ),

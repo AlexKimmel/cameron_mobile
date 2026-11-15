@@ -36,6 +36,22 @@ Future<T?> showPlannerSheet<T>(BuildContext context, Widget child) =>
       ),
     );
 
+Future<DateTime?> pickTaskDate(
+  BuildContext context, {
+  required DateTime now,
+  required DateTime initial,
+}) {
+  final first = DateTime(now.year - 10);
+  final last = DateTime(now.year + 10, 12, 31);
+  return showDatePicker(
+    context: context,
+    currentDate: now,
+    firstDate: initial.isBefore(first) ? initial : first,
+    lastDate: initial.isAfter(last) ? initial : last,
+    initialDate: initial,
+  );
+}
+
 sealed class TaskEditResult {
   const TaskEditResult();
 }
@@ -93,14 +109,7 @@ class _TaskEditorState extends State<TaskEditor> {
   }
 
   Future<void> _date() async {
-    final first = DateTime(widget.now.year - 10);
-    final last = DateTime(widget.now.year + 10, 12, 31);
-    final date = await showDatePicker(
-      context: context,
-      firstDate: _day.isBefore(first) ? _day : first,
-      lastDate: _day.isAfter(last) ? _day : last,
-      initialDate: _day,
-    );
+    final date = await pickTaskDate(context, now: widget.now, initial: _day);
     if (mounted && date != null) setState(() => _day = date);
   }
 
