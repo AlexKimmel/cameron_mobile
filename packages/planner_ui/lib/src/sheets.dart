@@ -74,12 +74,14 @@ class TaskEditor extends StatefulWidget {
     this.task,
     this.timed = false,
     this.showReminders = false,
+    this.reviewSchedule,
   });
 
   final DateTime now;
   final PlannerTask? task;
   final bool timed;
   final bool showReminders;
+  final Future<PlannerTask?> Function(PlannerTask)? reviewSchedule;
 
   @override
   State<TaskEditor> createState() => _TaskEditorState();
@@ -108,6 +110,7 @@ class _TaskEditorState extends State<TaskEditor> {
     widget.task?.repeat?.until ?? '',
   );
   bool _badEndDate = false;
+  bool _checkingSchedule = false;
 
   bool get _canRepeat =>
       widget.task?.occurrence == null && widget.task?.done != true;
@@ -158,7 +161,8 @@ class _TaskEditorState extends State<TaskEditor> {
     }
   }
 
-  void _save() {
+  Future<void> _save() async {
+    if (_checkingSchedule) return;
     final valid = _form.currentState!.validate();
     final day = dayKey(_day);
     final frequency = _frequency;
@@ -176,30 +180,35 @@ class _TaskEditorState extends State<TaskEditor> {
           day: day,
         );
     final time = _time;
-    Navigator.pop(
-      context,
-      SaveTask(
-        original.copyWith(
-          title: _title.text.trim(),
-          notes: _notes.text.trim(),
-          day: day,
-          repeat: frequency == null
-              ? null
-              : RepeatRule(
-                  frequency: frequency,
-                  interval: int.parse(_repeatEvery.text.trim()),
-                  weekdays: frequency == RepeatFrequency.weekly
-                      ? _weekdays
-                      : const {},
-                  until: until,
-                ),
-          startMinute: time == null ? null : time.hour * 60 + time.minute,
-          duration: int.tryParse(_duration.text.trim()) ?? 0,
-          priority: _high ? TaskPriority.high : TaskPriority.normal,
-          reminderMinutes: _reminder,
-        ),
-      ),
+    var edited = original.copyWith(
+      title: _title.text.trim(),
+      notes: _notes.text.trim(),
+      day: day,
+      repeat: frequency == null
+          ? null
+          : RepeatRule(
+              frequency: frequency,
+              interval: int.parse(_repeatEvery.text.trim()),
+              weekdays: frequency == RepeatFrequency.weekly
+                  ? _weekdays
+                  : const {},
+              until: until,
+            ),
+      startMinute: time == null ? null : time.hour * 60 + time.minute,
+      duration: int.tryParse(_duration.text.trim()) ?? 0,
+      priority: _high ? TaskPriority.high : TaskPriority.normal,
+      reminderMinutes: _reminder,
     );
+    final review = widget.reviewSchedule;
+    if (review != null && scheduleChanged(widget.task, edited)) {
+      setState(() => _checkingSchedule = true);
+      final resolved = await review(edited);
+      if (!mounted) return;
+      setState(() => _checkingSchedule = false);
+      if (resolved == null) return;
+      edited = resolved;
+    }
+    Navigator.pop(context, SaveTask(edited));
   }
 
   Future<void> _delete() async {
@@ -330,7 +339,10 @@ class _TaskEditorState extends State<TaskEditor> {
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
-            M3EButton.filled(onPressed: _save, label: Text('Save $_kind')),
+            M3EButton.filled(
+              onPressed: _checkingSchedule ? null : _save,
+              label: Text('Save $_kind'),
+            ),
           ],
         ),
       ],
@@ -438,6 +450,72 @@ class _TaskEditorState extends State<TaskEditor> {
               style: TextStyle(color: context.palette.error),
             ),
         ],
+      ],
+    );
+  }
+}
+
+class ScheduleConflictDialog extends StatelessWidget {
+  const ScheduleConflictDialog({super.key, required this.conflict});
+
+  final ScheduleConflict conflict;
+
+  @override
+  Widget build(BuildContext context) {
+    final proposedTime = conflict.task.startMinute!;
+    final dates = MaterialLocalizations.of(context);
+    return AlertDialog(
+      title: const Text('Scheduling conflict'),
+      scrollable: true,
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${conflict.task.title} at ${context.clock(proposedTime)} overlaps these sessions.',
+          ),
+          const SizedBox(height: 8),
+          for (final session in conflict.sessions.take(5))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 5),
+              child: Text(
+                '${session.title} · ${dates.formatShortDate(DateTime.parse(session.day))} · ${context.clock(session.startMinute!)}',
+              ),
+            ),
+          if (conflict.sessions.length > 5)
+            Text('And ${conflict.sessions.length - 5} more sessions'),
+          const SizedBox(height: 12),
+          if (conflict.suggestedMinutes.isEmpty)
+            const Text('No free times found for this schedule.')
+          else ...[
+            Text(
+              conflict.task.repeat == null
+                  ? 'Available times on this date'
+                  : 'Available times for the upcoming series',
+              style: context.type.labelLarge,
+            ),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final minute in conflict.suggestedMinutes)
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context, minute),
+                    child: Text('Use ${context.clock(minute)}'),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, proposedTime),
+          child: const Text('Keep this time'),
+        ),
       ],
     );
   }

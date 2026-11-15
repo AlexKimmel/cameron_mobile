@@ -4,6 +4,77 @@ import 'package:planner/planner.dart';
 import 'package:planner_ui/planner_ui.dart';
 
 void main() {
+  test('Conflict suggestions include off-grid gaps and crossing midnight', () {
+    final today = DateTime(2026, 11, 15, 8);
+    const task = PlannerTask(
+      id: 'new',
+      day: '2026-11-15',
+      title: 'Short session',
+      startMinute: 9 * 60 + 5,
+      duration: 10,
+    );
+    const first = PlannerTask(
+      id: 'short',
+      day: '2026-11-15',
+      title: 'Short meeting',
+      startMinute: 9 * 60,
+      duration: 7,
+    );
+    const later = PlannerTask(
+      id: 'later',
+      day: '2026-11-15',
+      title: 'Later meeting',
+      startMinute: 9 * 60 + 18,
+      duration: 42,
+    );
+    final conflict = inspectSchedule([first, later], task, today)!;
+    expect(conflict.sessions, [first]);
+    expect(conflict.suggestedMinutes.first, 9 * 60 + 7);
+
+    const late = PlannerTask(
+      id: 'late',
+      day: '2026-11-15',
+      title: 'Late meeting',
+      startMinute: 23 * 60 + 30,
+      duration: 60,
+    );
+    final nextDay = task.copyWith(day: '2026-11-16', startMinute: 10);
+    expect(inspectSchedule([late], nextDay, today)?.suggestedMinutes.first, 30);
+  });
+
+  test(
+    'Cancelling an assistant conflict keeps the whole batch unsaved',
+    () async {
+      const old = PlannerTask(
+        id: 'old',
+        title: 'Booked',
+        day: '2026-11-15',
+        startMinute: 540,
+        duration: 30,
+      );
+      final store = MemoryTaskStore([old]);
+      final result = await PlannerTools().apply(
+        const [
+          PlannerToolCall(PlannerTools.createTask, {'title': 'Untimed task'}),
+          PlannerToolCall(PlannerTools.createTask, {
+            'title': 'Overlapping task',
+            'time': '09:15',
+            'duration_minutes': 30,
+          }),
+        ],
+        store: store,
+        currentTasks: [old],
+        now: DateTime(2026, 11, 15, 8),
+        reviewSchedule: (conflict) async {
+          expect(conflict.sessions.single.id, old.id);
+          return null;
+        },
+      );
+      expect(result.cancelled, isTrue);
+      expect(await store.read(), [old]);
+    },
+  );
+
   testWidgets('Groups tasks by date and moves an overdue task from its card', (
     tester,
   ) async {
@@ -123,6 +194,64 @@ void main() {
         tasks.skip(1).every((task) => task.title == 'Send rent payment'),
         isTrue,
       );
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'Can cancel an overlap or pick a free time before saving a session',
+    (tester) async {
+      final now = DateTime(2026, 11, 15, 9);
+      final store = MemoryTaskStore([
+        const PlannerTask(
+          id: 'booked',
+          title: 'Booked',
+          day: '2026-11-15',
+          startMinute: 540,
+          duration: 30,
+        ),
+      ]);
+      await tester.pumpWidget(
+        PlannerApp(store: store, assistant: _OffAssistant(), clock: () => now),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Add session'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextFormField).first,
+        'Planning session',
+      );
+      final save = find.text('Save task');
+
+      Future<void> checkOverlap() async {
+        await tester.ensureVisible(save);
+        await tester.tap(save);
+        await tester.pumpAndSettle();
+        expect(find.text('Scheduling conflict'), findsOneWidget);
+        expect(await store.read(), hasLength(1));
+      }
+
+      await checkOverlap();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Cancel'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Planning session'), findsOneWidget);
+      await checkOverlap();
+
+      final label = MaterialLocalizations.of(
+        tester.element(find.byType(AlertDialog)),
+      ).formatTimeOfDay(const TimeOfDay(hour: 9, minute: 30));
+      await tester.tap(find.text('Use $label'));
+      await tester.pumpAndSettle();
+      final saved = (await store.read()).singleWhere(
+        (task) => task.title == 'Planning session',
+      );
+      expect(saved.startMinute, 570);
+      expect(saved.duration, 30);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );

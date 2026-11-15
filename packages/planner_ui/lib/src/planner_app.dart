@@ -739,8 +739,9 @@ class _PlannerHomeState extends State<_PlannerHome>
         currentTasks: tasks,
         now: now,
         deviceTools: enabled,
+        reviewSchedule: _pickScheduleTime,
       );
-      if (!mounted) return;
+      if (!mounted || result.cancelled) return;
       _acceptToolResult(result);
       if (result.drafts.isNotEmpty) {
         if (result.activities.isNotEmpty) {
@@ -828,6 +829,7 @@ class _PlannerHomeState extends State<_PlannerHome>
         now: widget.clock(),
         timed: timed,
         showReminders: widget.notificationSettings != null,
+        reviewSchedule: _reviewTaskSchedule,
       ),
     );
     if (!mounted || result == null) return;
@@ -855,6 +857,18 @@ class _PlannerHomeState extends State<_PlannerHome>
     });
   }
 
+  Future<int?> _pickScheduleTime(ScheduleConflict conflict) => showDialog<int>(
+    context: context,
+    builder: (_) => ScheduleConflictDialog(conflict: conflict),
+  );
+
+  Future<PlannerTask?> _reviewTaskSchedule(PlannerTask task) async {
+    final conflict = inspectSchedule(_tasks!, task, widget.clock());
+    if (conflict == null) return task;
+    final minute = await _pickScheduleTime(conflict);
+    return minute == null ? null : task.copyWith(startMinute: minute);
+  }
+
   Future<void> _reschedule(PlannerTask task) async {
     final day = await pickTaskDate(
       context,
@@ -862,7 +876,9 @@ class _PlannerHomeState extends State<_PlannerHome>
       initial: DateTime.parse(task.day),
     );
     if (!mounted || day == null || dayKey(day) == task.day) return;
-    _updateTask(task, (current) => current.rescheduled(dayKey(day)));
+    final resolved = await _reviewTaskSchedule(task.rescheduled(dayKey(day)));
+    if (!mounted || resolved == null) return;
+    _updateTask(task, (_) => resolved);
   }
 
   void _toggle(PlannerTask task) => _updateTask(

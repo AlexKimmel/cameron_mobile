@@ -5,5 +5,6 @@ export 'src/models.dart';
 export 'src/notifications.dart';
 export 'src/recurrence.dart';
 export 'src/recurrence_rule.dart';
+export 'src/scheduling.dart';
 export 'src/task.dart';
 export 'src/tools.dart';

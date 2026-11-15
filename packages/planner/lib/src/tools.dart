@@ -1,6 +1,7 @@
 import 'device_tools.dart';
 import 'recurrence.dart';
 import 'recurrence_rule.dart';
+import 'scheduling.dart';
 import 'task.dart';
 
 class AssistantReply {
@@ -32,12 +33,18 @@ abstract interface class PlannerAssistant {
 }
 
 class ToolResult {
-  const ToolResult(this.tasks, this.activities, this.drafts);
+  const ToolResult(
+    this.tasks,
+    this.activities,
+    this.drafts, {
+    this.cancelled = false,
+  });
 
   final List<PlannerTask> tasks;
 
   final List<String> activities;
   final List<DeviceToolDraft> drafts;
+  final bool cancelled;
 }
 
 class PlannerTools {
@@ -56,10 +63,12 @@ class PlannerTools {
     required DateTime now,
     List<DeviceTool> deviceTools = const [],
     bool approvedTaskCompletion = false,
+    Future<int?> Function(ScheduleConflict)? reviewSchedule,
   }) async {
     final tasks = currentTasks.toList();
     final activities = <String>[];
     final drafts = <DeviceToolDraft>[];
+    final scheduleChanges = <String>{};
     final available = {for (final tool in deviceTools) tool.name: tool};
     final today = dayKey(now);
     var changed = false;
@@ -81,19 +90,19 @@ class PlannerTools {
           if (priority != 'high' && priority != 'normal') {
             throw const FormatException('Choose a normal or high priority.');
           }
-          tasks.add(
-            PlannerTask(
-              id: 'ai-${now.microsecondsSinceEpoch}-${tasks.length}',
-              title: title,
-              day: day,
-              repeat: repeat,
-              notes: _text(args, 'notes', 1000, optional: true),
-              priority: TaskPriority.values.byName(priority as String),
-              startMinute: args['time'] == null ? null : _time(args['time']),
-              duration: duration,
-              origin: TaskOrigin.assistant,
-            ),
+          final task = PlannerTask(
+            id: 'ai-${now.microsecondsSinceEpoch}-${tasks.length}',
+            title: title,
+            day: day,
+            repeat: repeat,
+            notes: _text(args, 'notes', 1000, optional: true),
+            priority: TaskPriority.values.byName(priority as String),
+            startMinute: args['time'] == null ? null : _time(args['time']),
+            duration: duration,
+            origin: TaskOrigin.assistant,
           );
+          tasks.add(task);
+          scheduleChanges.add(task.id);
           activities.add(
             repeat == null ? 'Added “$title”' : 'Added repeating task “$title”',
           );
@@ -145,14 +154,13 @@ class PlannerTools {
               'The repeat end date comes before the new start.',
             );
           }
-          saveTaskRecord(
-            tasks,
-            target.rescheduled(
-              day,
-              newStart: time == null ? null : _time(time),
-              newOrigin: TaskOrigin.tool,
-            ),
+          final moved = target.rescheduled(
+            day,
+            newStart: time == null ? null : _time(time),
+            newOrigin: TaskOrigin.tool,
           );
+          saveTaskRecord(tasks, moved);
+          if (scheduleChanged(target, moved)) scheduleChanges.add(moved.id);
           activities.add(
             scope == 'series'
                 ? 'Moved the start of “${task.title}” to $day'
@@ -180,7 +188,11 @@ class PlannerTools {
           if (repeat == null) {
             throw const FormatException('Choose a repeat schedule.');
           }
-          saveTaskRecord(tasks, target.copyWith(repeat: repeat));
+          final repeating = target.copyWith(repeat: repeat);
+          saveTaskRecord(tasks, repeating);
+          if (scheduleChanged(target, repeating)) {
+            scheduleChanges.add(repeating.id);
+          }
           activities.add('Set the repeat schedule for “${target.title}”');
           changed = true;
         default:
@@ -191,6 +203,20 @@ class PlannerTools {
             );
           }
           drafts.add(tool.draft(args));
+      }
+    }
+
+    if (reviewSchedule != null) {
+      for (final id in scheduleChanges) {
+        final task = findTaskRecord(tasks, id);
+        if (task == null) continue;
+        final conflict = inspectSchedule(tasks, task, now);
+        if (conflict == null) continue;
+        final time = await reviewSchedule(conflict);
+        if (time == null) {
+          return ToolResult(currentTasks, const [], const [], cancelled: true);
+        }
+        saveTaskRecord(tasks, task.copyWith(startMinute: time));
       }
     }
 
