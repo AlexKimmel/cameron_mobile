@@ -205,7 +205,7 @@ class _TaskEditorState extends State<TaskEditor> {
               icon: const Icon(Icons.schedule),
               label: Text(_time?.format(context) ?? 'Start time'),
             ),
-            if (_time != null)
+            if (_time != null && !widget.timed)
               IconButton(
                 onPressed: () => setState(() => _time = null),
                 tooltip: 'Clear start time',
@@ -242,6 +242,10 @@ class _TaskEditorState extends State<TaskEditor> {
                 onPressed: _delete,
                 child: const Text('Delete task'),
               ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
             M3EButton.filled(onPressed: _save, label: const Text('Save task')),
           ],
         ),

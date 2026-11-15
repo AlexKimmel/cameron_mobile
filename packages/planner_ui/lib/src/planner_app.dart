@@ -122,6 +122,7 @@ class _PlannerHome extends StatefulWidget {
 class _PlannerHomeState extends State<_PlannerHome>
     with WidgetsBindingObserver {
   late int _tab = widget.initialTab;
+  TaskFilter _taskFilter = TaskFilter.all;
   List<PlannerTask>? _tasks;
   late List<String> _activities = widget.initialActivities;
   late String? _summary = widget.initialSummary;
@@ -750,6 +751,9 @@ class _PlannerHomeState extends State<_PlannerHome>
           : TasksScreen(
               tasks: tasks,
               today: dayKey(_displayTime),
+              filter: _taskFilter,
+              onFilterChanged: (filter) => setState(() => _taskFilter = filter),
+              canEdit: !_asking && !_saving && !_listening && !_startingVoice,
               onEdit: (task) => _edit(task: task),
               onToggle: _toggle,
               onStepToggle: _toggleStep,

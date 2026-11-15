@@ -1,14 +1,33 @@
-import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:planner/planner.dart';
 
 import 'design.dart';
 
-class TasksScreen extends StatefulWidget {
+enum TaskFilter {
+  all('All tasks', Icons.list_alt),
+  assistant('AI suggested', Icons.auto_awesome),
+  tool('Tool actions', Icons.terminal);
+
+  const TaskFilter(this.label, this.icon);
+
+  final String label;
+  final IconData icon;
+
+  bool matches(PlannerTask task) => switch (this) {
+    all => true,
+    assistant => task.origin == TaskOrigin.assistant,
+    tool => task.origin == TaskOrigin.tool,
+  };
+}
+
+class TasksScreen extends StatelessWidget {
   const TasksScreen({
     super.key,
     required this.tasks,
     required this.today,
+    required this.filter,
+    required this.onFilterChanged,
+    required this.canEdit,
     required this.onEdit,
     required this.onToggle,
     required this.onStepToggle,
@@ -16,36 +35,28 @@ class TasksScreen extends StatefulWidget {
 
   final List<PlannerTask> tasks;
   final String today;
+  final TaskFilter filter;
+  final ValueChanged<TaskFilter> onFilterChanged;
+  final bool canEdit;
   final ValueChanged<PlannerTask> onEdit;
   final ValueChanged<PlannerTask> onToggle;
   final void Function(PlannerTask, int) onStepToggle;
 
   @override
-  State<TasksScreen> createState() => _TasksScreenState();
-}
-
-class _TasksScreenState extends State<TasksScreen> {
-  int _filter = 0;
-
-  @override
   Widget build(BuildContext context) {
-    final tasks = widget.tasks.where(
-      (task) => switch (_filter) {
-        1 => task.origin == TaskOrigin.assistant || task.steps.isNotEmpty,
-        2 => task.origin == TaskOrigin.tool,
-        _ => true,
-      },
-    );
-    final today = widget.today;
+    final matching = tasks.where(filter.matches).toList();
     final scheduled =
-        tasks.where((task) => !task.done && task.day == today).toList()..sort(
-          (a, b) => (a.startMinute ?? 1440).compareTo(b.startMinute ?? 1440),
-        );
+        matching.where((task) => !task.done && task.day == today).toList()
+          ..sort(
+            (a, b) => (a.startMinute ?? 1440).compareTo(b.startMinute ?? 1440),
+          );
     final other =
-        tasks.where((task) => !task.done && task.day != today).toList()
+        matching.where((task) => !task.done && task.day != today).toList()
           ..sort((a, b) => a.day.compareTo(b.day));
-    final doneToday = tasks.where((task) => task.completedOn == today).toList();
-    final doneEarlier = tasks
+    final doneToday = matching
+        .where((task) => task.completedOn == today)
+        .toList();
+    final doneEarlier = matching
         .where((task) => task.done && task.completedOn != today)
         .toList();
     final focus = scheduled.fold(0, (sum, task) => sum + task.duration);
@@ -53,81 +64,54 @@ class _TasksScreenState extends State<TasksScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Panel(
-            radius: 30,
-            padding: const EdgeInsets.all(4),
-            color: context.palette.surfaceContainer,
-            child: M3EButtonGroup(
-              semanticLabel: 'Filter tasks',
-              selectedIndex: _filter,
-              selectionRequired: true,
-              size: M3EButtonSize.sm,
-              style: M3EButtonStyle.tonal,
-              decoration: M3EButtonDecoration(
-                backgroundColor: WidgetStateProperty.resolveWith(
-                  (states) => states.contains(WidgetState.selected)
-                      ? context.palette.primary
-                      : context.palette.surfaceContainer,
-                ),
-                foregroundColor: WidgetStateProperty.resolveWith(
-                  (states) => states.contains(WidgetState.selected)
-                      ? context.palette.onPrimary
-                      : context.palette.onSurfaceVariant,
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                iconSize: 16,
-                textStyle: context.type.labelMedium,
-                selectedRadius: 22,
-                unselectedRadius: 22,
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final option in TaskFilter.values)
+              ChoiceChip(
+                avatar: Icon(option.icon, size: 16),
+                label: Text(option.label),
+                selected: filter == option,
+                showCheckmark: false,
+                onSelected: (_) => onFilterChanged(option),
               ),
-              onSelectedIndexChanged: (value) =>
-                  setState(() => _filter = value!),
-              actions: [
-                for (final (index, item) in const [
-                  (Icons.task_alt, 'All tasks'),
-                  (Icons.auto_awesome, 'AI suggested'),
-                  (Icons.terminal, 'Tool actions'),
-                ].indexed)
-                  M3EButtonGroupAction(
-                    icon: Icon(item.$1),
-                    label: index == _filter ? Text(item.$2) : null,
-                    semanticLabel: item.$2,
-                    tooltip: index == _filter ? null : item.$2,
-                  ),
-              ],
-            ),
-          ),
+          ],
         ),
         const SizedBox(height: 16),
-        SectionHeading(
-          'Today',
-          trailing: focus > 0
-              ? Pill(
-                  '${durationLabel(focus)} focus',
-                  icon: Icons.timer_outlined,
-                )
-              : null,
-        ),
-        const SizedBox(height: 8),
-        if (scheduled.isEmpty)
+        if (matching.isEmpty)
           Panel(
             child: Text(
-              _filter == 0 ? 'No tasks today' : 'No matching tasks',
+              filter == TaskFilter.all ? 'No tasks yet' : 'No matching tasks',
               style: context.type.bodyMedium,
             ),
+          )
+        else ...[
+          SectionHeading(
+            'Today',
+            trailing: focus > 0
+                ? Pill(
+                    '${durationLabel(focus)} focus',
+                    icon: Icons.timer_outlined,
+                  )
+                : null,
           ),
-        for (final task in scheduled) _card(task),
-        if (other.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          const SectionHeading('Other days'),
           const SizedBox(height: 8),
-          for (final task in other) _card(task, showDay: true),
+          if (scheduled.isEmpty)
+            Panel(
+              child: Text('No tasks today', style: context.type.bodyMedium),
+            ),
+          for (final task in scheduled) _card(task),
+          if (other.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const SectionHeading('Other days'),
+            const SizedBox(height: 8),
+            for (final task in other) _card(task, showDay: true),
+          ],
+          if (doneToday.isNotEmpty) _completed(context, 'Completed', doneToday),
+          if (doneEarlier.isNotEmpty)
+            _completed(context, 'Previously completed', doneEarlier),
         ],
-        if (doneToday.isNotEmpty) _completed('Completed', doneToday),
-        if (doneEarlier.isNotEmpty)
-          _completed('Previously completed', doneEarlier),
       ],
     );
   }
@@ -138,17 +122,22 @@ class _TasksScreenState extends State<TasksScreen> {
     child: _TaskCard(
       task: task,
       showDay: showDay,
-      onEdit: () => widget.onEdit(task),
-      onToggle: () => widget.onToggle(task),
-      onStepToggle: (index) => widget.onStepToggle(task, index),
+      onEdit: canEdit ? () => onEdit(task) : null,
+      onToggle: canEdit ? () => onToggle(task) : null,
+      onStepToggle: canEdit ? (index) => onStepToggle(task, index) : null,
     ),
   );
 
-  Widget _completed(String title, List<PlannerTask> tasks) => Padding(
+  Widget _completed(
+    BuildContext context,
+    String title,
+    List<PlannerTask> tasks,
+  ) => Padding(
     padding: const EdgeInsets.only(top: 8),
     child: Panel(
       padding: EdgeInsets.zero,
       child: ExpansionTile(
+        key: PageStorageKey(title),
         leading: Icon(
           Icons.task_alt,
           color: context.palette.secondary,
@@ -163,14 +152,14 @@ class _TasksScreenState extends State<TasksScreen> {
               leading: IconButton.filled(
                 icon: const Icon(Icons.check, size: 16),
                 tooltip: 'Reopen ${task.title}',
-                onPressed: () => widget.onToggle(task),
+                onPressed: canEdit ? () => onToggle(task) : null,
                 visualDensity: VisualDensity.compact,
               ),
               title: Text(
                 task.title,
                 style: const TextStyle(decoration: TextDecoration.lineThrough),
               ),
-              onTap: () => widget.onEdit(task),
+              onTap: canEdit ? () => onEdit(task) : null,
             ),
         ],
       ),
@@ -189,9 +178,9 @@ class _TaskCard extends StatelessWidget {
 
   final PlannerTask task;
   final bool showDay;
-  final VoidCallback onEdit;
-  final VoidCallback onToggle;
-  final ValueChanged<int> onStepToggle;
+  final VoidCallback? onEdit;
+  final VoidCallback? onToggle;
+  final ValueChanged<int>? onStepToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -232,6 +221,8 @@ class _TaskCard extends StatelessWidget {
                           const SizedBox(height: 3),
                           Text(
                             task.notes,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
                             style: context.type.bodySmall!.copyWith(
                               color: palette.onSurfaceVariant,
                             ),
@@ -302,7 +293,7 @@ class _TaskCard extends StatelessWidget {
                 dense: true,
                 minTileHeight: 44,
                 leading: Icon(
-                  Icons.auto_awesome,
+                  Icons.checklist,
                   size: 18,
                   color: palette.primary,
                 ),
@@ -325,7 +316,9 @@ class _TaskCard extends StatelessWidget {
                               : null,
                         ),
                       ),
-                      onChanged: (_) => onStepToggle(index),
+                      onChanged: onStepToggle == null
+                          ? null
+                          : (_) => onStepToggle!(index),
                     ),
                 ],
               ),

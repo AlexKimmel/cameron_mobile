@@ -65,6 +65,74 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('Task filters distinguish origin and persist across tabs', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(tasksPreview());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('AI suggested'));
+    await tester.pumpAndSettle();
+    expect(find.text('Review design tokens with team'), findsNothing);
+
+    await tester.tap(find.text('Tool actions'));
+    await tester.pumpAndSettle();
+    expect(find.text('Finalize the on-device benchmark'), findsOneWidget);
+    expect(find.text('Review design tokens with team'), findsNothing);
+
+    await tester.tap(find.bySemanticsLabel('Briefing'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Tasks & Tools'));
+    await tester.pumpAndSettle();
+    final filter = tester.widget<ChoiceChip>(
+      find.widgetWithText(ChoiceChip, 'Tool actions'),
+    );
+    expect(filter.selected, isTrue);
+    expect(find.text('Finalize the on-device benchmark'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Completed tasks can be edited, canceled, and reopened', (
+    tester,
+  ) async {
+    await tester.pumpWidget(tasksPreview());
+    await tester.pumpAndSettle();
+    final completed = find.text('Completed · 2');
+    await tester.ensureVisible(completed);
+    await tester.tap(completed);
+    await tester.pumpAndSettle();
+
+    final original = find.text('Weekly sync with Core Engineering');
+    await tester.ensureVisible(original);
+    await tester.tap(original);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextFormField).first,
+      'Renamed weekly sync',
+    );
+    await tester.ensureVisible(find.text('Cancel'));
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(original, findsOneWidget);
+    expect(find.text('Renamed weekly sync'), findsNothing);
+
+    final reopen = find.byTooltip('Reopen Weekly sync with Core Engineering');
+    await tester.ensureVisible(reopen);
+    await tester.tap(reopen);
+    await tester.pumpAndSettle();
+    expect(find.text('Completed · 1'), findsOneWidget);
+    expect(
+      find.byTooltip('Complete Weekly sync with Core Engineering'),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('Voice starts from the dock and submits the transcript on stop', (
     tester,
   ) async {
