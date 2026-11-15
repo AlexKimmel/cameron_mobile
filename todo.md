@@ -8,3 +8,12 @@
 - [ ] Improve task list organization with stronger date grouping, overdue indicators, and easier rescheduling.
 - [ ] Add clear loading, error, and retry states for model downloads, inference, dictation, and tool handoffs.
 - [ ] Improve accessibility with larger tap targets, useful screen reader labels, and reduced-motion support across animated controls.
+- [ ] Add recurring tasks with flexible schedules and the option to edit one occurrence or the whole series.
+- [ ] Add optional local reminders for tasks and upcoming sessions, with snooze and quiet hours.
+- [ ] Show scheduling conflicts and suggest available time slots before moving or adding a session.
+- [ ] Add task search across titles and notes, including completed tasks.
+- [ ] Add undo for task deletions and assistant-made changes so users can recover from mistakes quickly.
+- [ ] Add a local backup and restore flow for tasks and settings, with a preview before importing.
+- [ ] Improve first-run onboarding with a sample day, a quick-add action, and the option to set up the assistant later.
+- [ ] Add configurable briefing times and an opt-in notification when a new briefing is ready.
+- [ ] Add physical-device regression tests for offline dictation, background briefings, and phone, SMS, and email handoffs on iOS and Android.
