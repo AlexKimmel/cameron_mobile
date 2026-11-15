@@ -35,6 +35,17 @@ class PreferencesTaskStore implements TaskStore {
   }
 }
 
+class PreferencesOnboarding implements PlannerOnboarding {
+  static const _key = 'planner.onboarding.welcomeSeen';
+  final _prefs = SharedPreferencesAsync();
+
+  @override
+  Future<bool> hasSeenWelcome() async => await _prefs.getBool(_key) ?? false;
+
+  @override
+  Future<void> markWelcomeSeen() => _prefs.setBool(_key, true);
+}
+
 class PreferencesDeviceToolStore implements DeviceToolStore {
   final _prefs = SharedPreferencesAsync();
 

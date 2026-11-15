@@ -26,6 +26,7 @@ void main() {
     PlannerApp(
       store: store,
       backup: backup,
+      onboarding: PreferencesOnboarding(),
       notificationSettings: notifications,
       assistant: assistant,
       modelLibrary: assistant.models,

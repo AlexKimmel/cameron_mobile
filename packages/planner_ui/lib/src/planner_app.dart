@@ -12,6 +12,7 @@ import 'planner_dock.dart';
 import 'sheets.dart';
 import 'tasks_screen.dart';
 import 'tool_settings_screen.dart';
+import 'welcome_screen.dart';
 
 class PlannerApp extends StatelessWidget {
   const PlannerApp({
@@ -24,6 +25,7 @@ class PlannerApp extends StatelessWidget {
     this.calendar,
     this.notificationSettings,
     this.backup,
+    this.onboarding,
     this.deviceTools = communicationTools,
     this.dictation,
     this.briefingStore,
@@ -43,6 +45,7 @@ class PlannerApp extends StatelessWidget {
   final DeviceCalendar? calendar;
   final PlannerNotificationSettings? notificationSettings;
   final PlannerBackup? backup;
+  final PlannerOnboarding? onboarding;
   final PlannerDictation? dictation;
   final BriefingStore? briefingStore;
   final Future<void> Function()? scheduleBriefings;
@@ -75,6 +78,7 @@ class PlannerApp extends StatelessWidget {
         calendar: calendar,
         notificationSettings: notificationSettings,
         backup: backup,
+        onboarding: onboarding,
         deviceTools: deviceTools,
         dictation: dictation,
         briefingStore: briefingStore,
@@ -98,6 +102,7 @@ class _PlannerHome extends StatefulWidget {
     required this.calendar,
     required this.notificationSettings,
     required this.backup,
+    required this.onboarding,
     required this.deviceTools,
     required this.dictation,
     required this.briefingStore,
@@ -117,6 +122,7 @@ class _PlannerHome extends StatefulWidget {
   final DeviceCalendar? calendar;
   final PlannerNotificationSettings? notificationSettings;
   final PlannerBackup? backup;
+  final PlannerOnboarding? onboarding;
   final PlannerDictation? dictation;
   final BriefingStore? briefingStore;
   final Future<void> Function()? scheduleBriefings;
@@ -154,6 +160,7 @@ class _PlannerHomeState extends State<_PlannerHome>
   bool _reviewingVoice = false;
   Timer? _finishVoiceTimer;
   bool _readFailed = false;
+  bool _welcomeChecked = false;
   bool _checking = true;
   bool _installed = false;
   bool _installing = false;
@@ -350,9 +357,55 @@ class _PlannerHomeState extends State<_PlannerHome>
           _invalidateBriefing();
         });
         unawaited(_refreshBriefing());
+        unawaited(_maybeWelcome());
       }
     } catch (_) {
       if (mounted) setState(() => _readFailed = true);
+    }
+  }
+
+  Future<void> _maybeWelcome() async {
+    final onboarding = widget.onboarding;
+    if (onboarding == null || _welcomeChecked) return;
+    _welcomeChecked = true;
+    try {
+      if (await onboarding.hasSeenWelcome() || !mounted) return;
+      if (_tasks?.isNotEmpty == true) {
+        await onboarding.markWelcomeSeen();
+        return;
+      }
+      final choice = await Navigator.of(context).push<WelcomeAction>(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => WelcomeScreen(
+            assistantAvailable: widget.assistant.supported,
+            onSample: () => _write(
+              (tasks) =>
+                  tasks.isEmpty ? samplePlannerDay(widget.clock()) : tasks,
+            ),
+          ),
+        ),
+      );
+      if (!mounted) return;
+      try {
+        await onboarding.markWelcomeSeen();
+      } catch (error) {
+        debugPrint('Could not persist the welcome state: $error');
+      }
+      if (!mounted) return;
+      switch (choice) {
+        case WelcomeAction.quickAdd:
+          setState(() => _tab = 1);
+          await _edit();
+        case WelcomeAction.setupAssistant:
+          await _showDownload();
+        case WelcomeAction.sample:
+        case WelcomeAction.later:
+        case null:
+          break;
+      }
+    } catch (error) {
+      debugPrint('Could not finish first-run onboarding: $error');
     }
   }
 
