@@ -73,11 +73,13 @@ class TaskEditor extends StatefulWidget {
     required this.now,
     this.task,
     this.timed = false,
+    this.showReminders = false,
   });
 
   final DateTime now;
   final PlannerTask? task;
   final bool timed;
+  final bool showReminders;
 
   @override
   State<TaskEditor> createState() => _TaskEditorState();
@@ -96,6 +98,7 @@ class _TaskEditorState extends State<TaskEditor> {
       ? widget.now
       : DateTime.parse(widget.task!.day);
   late bool _high = widget.task?.priority == TaskPriority.high;
+  late int? _reminder = widget.task?.reminderMinutes;
   late RepeatFrequency? _frequency = widget.task?.repeat?.frequency;
   late final _repeatEvery = TextEditingController(
     text: '${widget.task?.repeat?.interval ?? 1}',
@@ -193,6 +196,7 @@ class _TaskEditorState extends State<TaskEditor> {
           startMinute: time == null ? null : time.hour * 60 + time.minute,
           duration: int.tryParse(_duration.text.trim()) ?? 0,
           priority: _high ? TaskPriority.high : TaskPriority.normal,
+          reminderMinutes: _reminder,
         ),
       ),
     );
@@ -290,6 +294,25 @@ class _TaskEditorState extends State<TaskEditor> {
           },
         ),
         if (_canRepeat) ...[const SizedBox(height: 16), _repeatFields(context)],
+        if (widget.showReminders) ...[
+          const SizedBox(height: 16),
+          DropdownButtonFormField<int>(
+            initialValue: _reminder ?? -1,
+            decoration: const InputDecoration(labelText: 'Task reminder'),
+            items: [
+              const DropdownMenuItem(value: -1, child: Text('No reminder')),
+              const DropdownMenuItem(value: 0, child: Text('At start time')),
+              for (final offset in {5, 10, 15, 30, 60, 120, 1440, ?_reminder})
+                if (offset > 0)
+                  DropdownMenuItem(
+                    value: offset,
+                    child: Text('${durationLabel(offset)} before'),
+                  ),
+            ],
+            onChanged: (value) =>
+                setState(() => _reminder = value == -1 ? null : value),
+          ),
+        ],
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('High priority'),

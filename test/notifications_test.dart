@@ -42,6 +42,49 @@ void main() {
     },
   );
 
+  test(
+    'Task reminders deduplicate at quiet end and preserve the saved offset',
+    () {
+      const task = PlannerTask(
+        id: 'early',
+        title: 'Early session',
+        day: '2026-11-16',
+        startMinute: 6 * 60,
+        reminderMinutes: 30,
+      );
+      final restored = PlannerTask.fromJson(task.toJson());
+      expect(restored.reminderMinutes, 30);
+      final quiet = QuietHours(startMinute: 22 * 60, endMinute: 7 * 60);
+      final start = DateTime(2026, 11, 15, 20);
+      final noQuiet = upcomingTaskNotices(
+        [restored],
+        start,
+        includeReminders: true,
+      );
+      expect(noQuiet.map((notice) => notice.time), [
+        DateTime(2026, 11, 16, 5, 30),
+        DateTime(2026, 11, 16, 6),
+      ]);
+
+      final delayed = upcomingTaskNotices(
+        [restored],
+        start,
+        includeReminders: true,
+        quietHours: quiet,
+      );
+      expect(delayed.single.time, DateTime(2026, 11, 16, 7));
+      expect(delayed.single.reminder, isTrue);
+      expect(
+        quiet.nextAllowed(DateTime(2026, 11, 15, 22, 5)),
+        DateTime(2026, 11, 16, 7),
+      );
+      expect(
+        quiet.nextAllowed(DateTime(2026, 11, 16, 7)),
+        DateTime(2026, 11, 16, 7),
+      );
+    },
+  );
+
   testWidgets('Notification switches require explicit OS permission', (
     tester,
   ) async {
@@ -84,6 +127,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(settings.requests, 2);
     expect(settings.enabled, isEmpty);
+
+    final quiet = find.widgetWithText(SwitchListTile, 'Quiet hours');
+    await tester.ensureVisible(quiet);
+    await tester.pumpAndSettle();
+    await tester.tap(quiet);
+    await tester.pumpAndSettle();
+    expect(settings.quiet?.startMinute, 22 * 60);
+    expect(settings.quiet?.endMinute, 7 * 60);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Task editor saves a reminder without changing the task date', (
+    tester,
+  ) async {
+    final store = MemoryTaskStore();
+    await tester.pumpWidget(
+      PlannerApp(
+        store: store,
+        assistant: _OffAssistant(),
+        notificationSettings: _Settings(),
+        initialTab: 1,
+        clock: () => DateTime(2026, 11, 15, 10),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Add task'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).first, 'Prepare notes');
+    await tester.ensureVisible(find.text('No reminder'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('No reminder'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('15m before').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save task'));
+    await tester.tap(find.text('Save task'));
+    await tester.pumpAndSettle();
+    final task = (await store.read()).single;
+    expect(task.reminderMinutes, 15);
+    expect(task.day, '2026-11-15');
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }
@@ -92,6 +175,7 @@ class _Settings implements PlannerNotificationSettings {
   bool canGrant = false;
   bool permitted = false;
   int requests = 0;
+  QuietHours? quiet;
   final enabled = <PlannerNotificationKind>{};
 
   @override
@@ -118,6 +202,14 @@ class _Settings implements PlannerNotificationSettings {
 
   @override
   Future<void> openSystemSettings() async {}
+
+  @override
+  Future<QuietHours?> readQuietHours() async => quiet;
+
+  @override
+  Future<void> saveQuietHours(QuietHours? hours) async {
+    quiet = hours;
+  }
 }
 
 class _OffAssistant implements PlannerAssistant {

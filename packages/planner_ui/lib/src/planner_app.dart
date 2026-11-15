@@ -823,7 +823,12 @@ class _PlannerHomeState extends State<_PlannerHome>
     }
     final result = await showPlannerSheet<TaskEditResult>(
       context,
-      TaskEditor(task: target, now: widget.clock(), timed: timed),
+      TaskEditor(
+        task: target,
+        now: widget.clock(),
+        timed: timed,
+        showReminders: widget.notificationSettings != null,
+      ),
     );
     if (!mounted || result == null) return;
     await _write((tasks) {

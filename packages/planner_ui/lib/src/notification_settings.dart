@@ -17,6 +17,7 @@ class _NotificationSettingsPanelState extends State<NotificationSettingsPanel>
     with WidgetsBindingObserver {
   Set<PlannerNotificationKind>? _enabled;
   bool? _permission;
+  QuietHours? _quiet;
   bool _working = false;
   String? _error;
 
@@ -41,6 +42,7 @@ class _NotificationSettingsPanelState extends State<NotificationSettingsPanel>
   Future<void> _read() async {
     try {
       final permission = await widget.settings.hasPermission();
+      final quiet = await widget.settings.readQuietHours();
       final enabled = <PlannerNotificationKind>{
         for (final kind in PlannerNotificationKind.values)
           if (await widget.settings.isEnabled(kind)) kind,
@@ -49,6 +51,7 @@ class _NotificationSettingsPanelState extends State<NotificationSettingsPanel>
         setState(() {
           _permission = permission;
           _enabled = enabled;
+          _quiet = quiet;
           _error = null;
         });
       }
@@ -84,6 +87,30 @@ class _NotificationSettingsPanelState extends State<NotificationSettingsPanel>
     } finally {
       if (mounted) setState(() => _working = false);
     }
+  }
+
+  Future<void> _saveQuietHours(QuietHours? hours) async {
+    if (_working) return;
+    setState(() {
+      _working = true;
+      _error = null;
+    });
+    try {
+      await widget.settings.saveQuietHours(hours);
+      if (mounted) setState(() => _quiet = hours);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Could not save quiet hours.');
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _editQuietHours(QuietHours current) async {
+    final edited = await showDialog<QuietHours>(
+      context: context,
+      builder: (_) => _QuietHoursDialog(current: current),
+    );
+    if (mounted && edited != null) await _saveQuietHours(edited);
   }
 
   Future<void> _openSettings() async {
@@ -129,6 +156,38 @@ class _NotificationSettingsPanelState extends State<NotificationSettingsPanel>
               'When a new briefing is ready.',
               enabled,
             ),
+            _switch(
+              PlannerNotificationKind.reminder,
+              'Task reminders',
+              'Notify before a task when you set a reminder.',
+              enabled,
+            ),
+            const Divider(),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Quiet hours'),
+              subtitle: Text(
+                _quiet == null
+                    ? 'Delay task alerts and snoozes until quiet hours end.'
+                    : '${context.clock(_quiet!.startMinute)} – ${context.clock(_quiet!.endMinute)}',
+              ),
+              value: _quiet != null,
+              onChanged: _working
+                  ? null
+                  : (enabled) => _saveQuietHours(
+                      enabled
+                          ? QuietHours(startMinute: 22 * 60, endMinute: 7 * 60)
+                          : null,
+                    ),
+            ),
+            if (_quiet case final current?)
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton(
+                  onPressed: _working ? null : () => _editQuietHours(current),
+                  child: const Text('Edit quiet hours'),
+                ),
+              ),
           ],
         ],
       ),
@@ -146,5 +205,71 @@ class _NotificationSettingsPanelState extends State<NotificationSettingsPanel>
     subtitle: Text(subtitle),
     value: enabled.contains(kind),
     onChanged: _working ? null : (value) => _toggle(kind, value),
+  );
+}
+
+class _QuietHoursDialog extends StatefulWidget {
+  const _QuietHoursDialog({required this.current});
+
+  final QuietHours current;
+
+  @override
+  State<_QuietHoursDialog> createState() => _QuietHoursDialogState();
+}
+
+class _QuietHoursDialogState extends State<_QuietHoursDialog> {
+  late int _start = widget.current.startMinute;
+  late int _end = widget.current.endMinute;
+
+  Future<void> _pick({required bool start}) async {
+    final minute = start ? _start : _end;
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: minute ~/ 60, minute: minute % 60),
+    );
+    if (!mounted || picked == null) return;
+    setState(() {
+      final value = picked.hour * 60 + picked.minute;
+      if (start) {
+        _start = value;
+      } else {
+        _end = value;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Quiet hours'),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextButton(
+          onPressed: () => _pick(start: true),
+          child: Text('Starts at ${context.clock(_start)}'),
+        ),
+        TextButton(
+          onPressed: () => _pick(start: false),
+          child: Text('Ends at ${context.clock(_end)}'),
+        ),
+        if (_start == _end) const Text('Choose different start and end times.'),
+      ],
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: _start == _end
+            ? null
+            : () => Navigator.pop(
+                context,
+                QuietHours(startMinute: _start, endMinute: _end),
+              ),
+        child: const Text('Save'),
+      ),
+    ],
   );
 }

@@ -31,6 +31,7 @@ class PlannerTask {
     this.repeat,
     this.occurrence,
     this.skipped = false,
+    this.reminderMinutes,
   });
 
   final String id;
@@ -46,6 +47,7 @@ class PlannerTask {
   final RepeatRule? repeat;
   final TaskOccurrence? occurrence;
   final bool skipped;
+  final int? reminderMinutes;
 
   bool get done => completedOn != null;
 
@@ -65,6 +67,7 @@ class PlannerTask {
     Object? repeat = _keep,
     Object? occurrence = _keep,
     bool? skipped,
+    Object? reminderMinutes = _keep,
   }) => PlannerTask(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -85,6 +88,9 @@ class PlannerTask {
         ? this.occurrence
         : occurrence as TaskOccurrence?,
     skipped: skipped ?? this.skipped,
+    reminderMinutes: identical(reminderMinutes, _keep)
+        ? this.reminderMinutes
+        : reminderMinutes as int?,
   );
 
   PlannerTask toggleDone(String today) =>
@@ -116,6 +122,7 @@ class PlannerTask {
     if (repeat != null) 'repeat': repeat!.toJson(),
     if (occurrence != null) 'occurrence': occurrence!.toJson(),
     if (skipped) 'skipped': true,
+    if (reminderMinutes != null) 'reminderMinutes': reminderMinutes,
   };
 
   factory PlannerTask.fromJson(Map<String, dynamic> json) => PlannerTask(
@@ -139,6 +146,10 @@ class PlannerTask {
         ? null
         : TaskOccurrence.fromJson(json['occurrence'] as Map<String, dynamic>),
     skipped: json['skipped'] as bool? ?? false,
+    reminderMinutes: switch (json['reminderMinutes']) {
+      final int minutes when minutes >= 0 && minutes <= 1440 => minutes,
+      _ => null,
+    },
   );
 }
 

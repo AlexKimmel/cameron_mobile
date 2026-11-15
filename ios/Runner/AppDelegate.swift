@@ -3,6 +3,7 @@ import Flutter
 import MessageUI
 import UIKit
 import UserNotifications
+import flutter_local_notifications
 import workmanager_apple
 
 @main
@@ -24,6 +25,9 @@ import workmanager_apple
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    FlutterLocalNotificationsPlugin.setPluginRegistrantCallback { registry in
+      GeneratedPluginRegistrant.register(with: registry)
+    }
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     FlutterMethodChannel(
       name: "cameron/calendar",
