@@ -1,3 +1,5 @@
+import 'task.dart';
+
 class DeviceToolField {
   const DeviceToolField(
     this.name,
@@ -105,6 +107,38 @@ const emailTool = DeviceTool(
 );
 
 const communicationTools = [phoneCallTool, smsTool, emailTool];
+
+const taskCompletionTool = DeviceTool(
+  name: 'complete_task',
+  label: 'Task completion',
+  description:
+      'Mark an existing Cameron task complete after the user reviews it.',
+  reviewAction: 'Mark complete',
+  fields: [DeviceToolField('id', 'Task ID', 100)],
+);
+
+const calendarReadTool = DeviceTool(
+  name: 'read_calendar',
+  label: 'Calendar events',
+  description: 'Read device calendar events for one local date after review.',
+  reviewAction: 'Read calendar',
+  fields: [
+    DeviceToolField(
+      'day',
+      'Local date YYYY-MM-DD',
+      10,
+      normalize: _calendarDay,
+    ),
+  ],
+);
+
+String _calendarDay(String text) {
+  final date = DateTime.tryParse(text);
+  if (date == null || dayKey(date) != text) {
+    throw const FormatException('Choose a calendar date in YYYY-MM-DD format.');
+  }
+  return text;
+}
 
 const _phone = DeviceToolField(
   'phone',

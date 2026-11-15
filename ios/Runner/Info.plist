@@ -32,6 +32,10 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Cameron reads calendar event titles and times for the date you approve.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Cameron reads calendar event titles and times for the date you approve.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Dictate a prompt for your local day planner.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

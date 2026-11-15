@@ -15,6 +15,7 @@ void main() {
       scheduleBriefings: startBriefingJobs,
       toolStore: PreferencesDeviceToolStore(),
       openDeviceTool: mobileToolOpener,
+      calendar: MobileCalendar.supported ? MobileCalendar() : null,
       dictation: MobileDictation.supported ? MobileDictation() : null,
     ),
   );

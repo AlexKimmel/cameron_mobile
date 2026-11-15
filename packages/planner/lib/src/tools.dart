@@ -52,6 +52,7 @@ class PlannerTools {
     required List<PlannerTask> currentTasks,
     required DateTime now,
     List<DeviceTool> deviceTools = const [],
+    bool approvedTaskCompletion = false,
   }) async {
     final tasks = currentTasks.toList();
     final activities = <String>[];
@@ -92,7 +93,15 @@ class PlannerTools {
         case completeTask:
           final index = _taskIndex(tasks, args);
           final task = tasks[index];
-          if (!task.done) {
+          if (!approvedTaskCompletion) {
+            final tool = available[call.name];
+            if (tool == null) {
+              throw const FormatException(
+                'Enable Task completion in Tool settings.',
+              );
+            }
+            drafts.add(tool.draft({'id': task.id}));
+          } else if (!task.done) {
             tasks[index] = task.toggleDone(today);
             activities.add('Completed “${task.title}”');
             changed = true;

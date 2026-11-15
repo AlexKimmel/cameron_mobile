@@ -1,3 +1,4 @@
+import EventKit
 import Flutter
 import MessageUI
 import UIKit
@@ -7,6 +8,8 @@ import workmanager_apple
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate,
   MFMessageComposeViewControllerDelegate
 {
+  private let calendarStore = EKEventStore()
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -20,6 +23,12 @@ import workmanager_apple
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    FlutterMethodChannel(
+      name: "cameron/calendar",
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    ).setMethodCallHandler { [weak self] call, result in
+      self?.handleCalendar(call, result: result)
+    }
     FlutterMethodChannel(
       name: "cameron/communication",
       binaryMessenger: engineBridge.applicationRegistrar.messenger()
@@ -61,6 +70,78 @@ import workmanager_apple
       default:
         result(FlutterMethodNotImplemented)
       }
+    }
+  }
+
+  private var hasCalendarAccess: Bool {
+    let status = EKEventStore.authorizationStatus(for: .event)
+    if #available(iOS 17, *) { return status == .fullAccess }
+    return status == .authorized
+  }
+
+  private func handleCalendar(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    switch call.method {
+    case "hasAccess":
+      result(hasCalendarAccess)
+    case "requestAccess":
+      if hasCalendarAccess {
+        result(true)
+        return
+      }
+      let reply: (Bool, Error?) -> Void = { granted, error in
+        DispatchQueue.main.async {
+          if let error {
+            result(FlutterError(code: "calendar_permission", message: error.localizedDescription, details: nil))
+          } else {
+            result(granted)
+          }
+        }
+      }
+      if #available(iOS 17, *) {
+        calendarStore.requestFullAccessToEvents(completion: reply)
+      } else {
+        calendarStore.requestAccess(to: .event, completion: reply)
+      }
+    case "openSettings":
+      guard let settings = URL(string: UIApplication.openSettingsURLString) else {
+        result(FlutterError(code: "calendar_settings", message: nil, details: nil))
+        return
+      }
+      UIApplication.shared.open(settings, options: [:]) { opened in
+        result(opened ? nil : FlutterError(code: "calendar_settings", message: nil, details: nil))
+      }
+    case "events":
+      guard hasCalendarAccess else {
+        result(FlutterError(code: "calendar_permission", message: "Calendar access is off.", details: nil))
+        return
+      }
+      guard let arguments = call.arguments as? [String: NSNumber],
+        let begin = arguments["start"], let finish = arguments["end"]
+      else {
+        result(FlutterError(code: "calendar_date", message: "Invalid calendar date.", details: nil))
+        return
+      }
+      let start = Date(timeIntervalSince1970: begin.doubleValue / 1000)
+      let end = Date(timeIntervalSince1970: finish.doubleValue / 1000)
+      guard end > start, end.timeIntervalSince(start) <= 26 * 60 * 60 else {
+        result(FlutterError(code: "calendar_date", message: "Invalid calendar date.", details: nil))
+        return
+      }
+      let predicate = calendarStore.predicateForEvents(withStart: start, end: end, calendars: nil)
+      let events = calendarStore.events(matching: predicate)
+        .filter { $0.status != .canceled && $0.startDate < end && $0.endDate > start }
+        .sorted { $0.startDate < $1.startDate }
+        .map { event -> [String: Any] in
+          [
+            "title": event.title ?? "",
+            "start": Int64(event.startDate.timeIntervalSince1970 * 1000),
+            "end": Int64(event.endDate.timeIntervalSince1970 * 1000),
+            "allDay": event.isAllDay,
+          ]
+        }
+      result(events)
+    default:
+      result(FlutterMethodNotImplemented)
     }
   }
 

@@ -224,11 +224,6 @@ final _tools = [
     ],
   ),
   ToolDefinition(
-    name: PlannerTools.completeTask,
-    description: 'Mark an existing planner task complete.',
-    parameters: [ToolParam.string('id', required: true)],
-  ),
-  ToolDefinition(
     name: PlannerTools.rescheduleTask,
     description: 'Change the day or start time of an existing planner task.',
     parameters: [

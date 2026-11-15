@@ -300,10 +300,12 @@ class DeviceToolReviewSheet extends StatefulWidget {
   const DeviceToolReviewSheet({
     super.key,
     required this.drafts,
+    required this.review,
     required this.open,
   });
 
   final List<DeviceToolDraft> drafts;
+  final Map<String, String> Function(DeviceToolDraft) review;
   final Future<bool> Function(DeviceToolDraft) open;
 
   @override
@@ -353,12 +355,11 @@ class _DeviceToolReviewSheetState extends State<DeviceToolReviewSheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(draft.tool.label, style: context.type.titleMedium),
-                  for (final field in draft.tool.fields)
-                    if (draft.arguments[field.name] case final value?) ...[
-                      const SizedBox(height: 8),
-                      Text(field.label, style: context.type.labelMedium),
-                      SelectableText(value),
-                    ],
+                  for (final field in widget.review(draft).entries) ...[
+                    const SizedBox(height: 8),
+                    Text(field.key, style: context.type.labelMedium),
+                    SelectableText(field.value),
+                  ],
                   const SizedBox(height: 12),
                   M3EButton.filled(
                     onPressed: _opening ? null : () => _open(index),
@@ -372,4 +373,50 @@ class _DeviceToolReviewSheetState extends State<DeviceToolReviewSheet> {
         Text(error, style: TextStyle(color: context.palette.error)),
     ],
   );
+}
+
+class CalendarEventsSheet extends StatelessWidget {
+  const CalendarEventsSheet({
+    super.key,
+    required this.day,
+    required this.events,
+  });
+
+  final DateTime day;
+  final List<CalendarEvent> events;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = MaterialLocalizations.of(context);
+    String time(DateTime value) => localizations.formatTimeOfDay(
+      TimeOfDay.fromDateTime(value),
+      alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+    );
+    final tomorrow = DateTime(day.year, day.month, day.day + 1);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Calendar events', style: context.type.headlineSmall),
+        Text(localizations.formatFullDate(day)),
+        const SizedBox(height: 12),
+        if (events.isEmpty) const Text('No events for this date.'),
+        for (final event in events)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(event.title.isEmpty ? 'Untitled event' : event.title),
+            subtitle: Text(
+              event.allDay
+                  ? 'All day'
+                  : '${event.start.isBefore(day) ? 'From previous day' : time(event.start)}'
+                        ' – ${event.end.isAfter(tomorrow) ? 'Continues next day' : time(event.end)}',
+            ),
+          ),
+        const SizedBox(height: 12),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Done'),
+        ),
+      ],
+    );
+  }
 }

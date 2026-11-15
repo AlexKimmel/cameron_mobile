@@ -21,6 +21,7 @@ class PlannerApp extends StatelessWidget {
     this.modelLibrary,
     this.toolStore,
     this.openDeviceTool,
+    this.calendar,
     this.deviceTools = communicationTools,
     this.dictation,
     this.briefingStore,
@@ -37,6 +38,7 @@ class PlannerApp extends StatelessWidget {
   final DeviceToolStore? toolStore;
   final Future<bool> Function(DeviceToolDraft)? openDeviceTool;
   final List<DeviceTool> deviceTools;
+  final DeviceCalendar? calendar;
   final PlannerDictation? dictation;
   final BriefingStore? briefingStore;
   final Future<void> Function()? scheduleBriefings;
@@ -66,6 +68,7 @@ class PlannerApp extends StatelessWidget {
         modelLibrary: modelLibrary,
         toolStore: toolStore,
         openDeviceTool: openDeviceTool,
+        calendar: calendar,
         deviceTools: deviceTools,
         dictation: dictation,
         briefingStore: briefingStore,
@@ -86,6 +89,7 @@ class _PlannerHome extends StatefulWidget {
     required this.modelLibrary,
     required this.toolStore,
     required this.openDeviceTool,
+    required this.calendar,
     required this.deviceTools,
     required this.dictation,
     required this.briefingStore,
@@ -102,6 +106,7 @@ class _PlannerHome extends StatefulWidget {
   final DeviceToolStore? toolStore;
   final Future<bool> Function(DeviceToolDraft)? openDeviceTool;
   final List<DeviceTool> deviceTools;
+  final DeviceCalendar? calendar;
   final PlannerDictation? dictation;
   final BriefingStore? briefingStore;
   final Future<void> Function()? scheduleBriefings;
@@ -466,20 +471,34 @@ class _PlannerHomeState extends State<_PlannerHome>
     Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => ToolSettingsScreen(
-          tools: widget.deviceTools,
-          store: widget.openDeviceTool == null ? null : widget.toolStore,
+          tools: _toolCatalog,
+          store: widget.toolStore,
+          available: _toolAvailable,
+          calendar: widget.calendar,
         ),
       ),
     );
   }
 
+  List<DeviceTool> get _toolCatalog => [
+    ...widget.deviceTools,
+    taskCompletionTool,
+    calendarReadTool,
+  ];
+
+  bool _toolAvailable(DeviceTool tool) => switch (tool.name) {
+    'complete_task' => widget.assistant.supported,
+    'read_calendar' => widget.assistant.supported && widget.calendar != null,
+    _ => widget.openDeviceTool != null,
+  };
+
   Future<List<DeviceTool>> _enabledTools(Iterable<DeviceTool> tools) async {
     final store = widget.toolStore;
-    if (store == null || widget.openDeviceTool == null) return const [];
+    if (store == null) return const [];
     try {
       return [
         for (final tool in tools)
-          if (await store.isEnabled(tool.name)) tool,
+          if (_toolAvailable(tool) && await store.isEnabled(tool.name)) tool,
       ];
     } catch (_) {
       if (mounted) _message('Could not read Tool settings.');
@@ -488,13 +507,70 @@ class _PlannerHomeState extends State<_PlannerHome>
   }
 
   Future<bool> _openTool(DeviceToolDraft draft) async {
-    final open = widget.openDeviceTool;
-    if (open == null || (await _enabledTools([draft.tool])).isEmpty) {
+    if ((await _enabledTools([draft.tool])).isEmpty) {
       throw const FormatException(
         'This tool is disabled or unavailable in Tool settings.',
       );
     }
-    return mounted && await open(draft);
+    if (!mounted) return false;
+    if (draft.tool.name == taskCompletionTool.name) {
+      final result = await PlannerTools().apply(
+        [PlannerToolCall(draft.tool.name, draft.arguments)],
+        store: widget.store,
+        currentTasks: _tasks!,
+        now: widget.clock(),
+        approvedTaskCompletion: true,
+      );
+      if (mounted) {
+        _acceptToolResult(result);
+        _message(result.activities.join('\n'));
+      }
+      return true;
+    }
+    if (draft.tool.name == calendarReadTool.name) {
+      final calendar = widget.calendar!;
+      final granted =
+          await calendar.hasAccess() || await calendar.requestAccess();
+      if (!granted) {
+        throw const FormatException(
+          'Calendar access is off. Open Tool settings to manage it.',
+        );
+      }
+      final day = DateTime.parse(draft.arguments['day']!);
+      final events = await calendar.eventsOn(day);
+      if (!mounted) return false;
+      await showPlannerSheet<void>(
+        context,
+        CalendarEventsSheet(day: day, events: events),
+      );
+      return true;
+    }
+    return await widget.openDeviceTool?.call(draft) ?? false;
+  }
+
+  void _acceptToolResult(ToolResult result) {
+    setState(() {
+      _tasks = result.tasks;
+      if (result.activities.isNotEmpty) {
+        _activities = [
+          ...result.activities.reversed,
+          ..._activities,
+        ].take(20).toList();
+      }
+    });
+  }
+
+  Map<String, String> _reviewTool(DeviceToolDraft draft) {
+    if (draft.tool.name == taskCompletionTool.name) {
+      final task = _tasks!.firstWhere(
+        (task) => task.id == draft.arguments['id'],
+      );
+      return {'Task': task.title, 'Scheduled date': task.day};
+    }
+    return {
+      for (final field in draft.tool.fields)
+        field.label: ?draft.arguments[field.name],
+    };
   }
 
   Future<void> _typePrompt() async {
@@ -514,7 +590,7 @@ class _PlannerHomeState extends State<_PlannerHome>
     try {
       await _briefingRun;
       if (!mounted) return;
-      final offered = await _enabledTools(widget.deviceTools);
+      final offered = await _enabledTools(_toolCatalog);
       if (!mounted) return;
       final reply = await widget.assistant.ask(
         prompt,
@@ -537,22 +613,18 @@ class _PlannerHomeState extends State<_PlannerHome>
         deviceTools: enabled,
       );
       if (!mounted) return;
-      setState(() {
-        _tasks = result.tasks;
-        if (result.activities.isNotEmpty) {
-          _activities = [
-            ...result.activities.reversed,
-            ..._activities,
-          ].take(20).toList();
-        }
-      });
+      _acceptToolResult(result);
       if (result.drafts.isNotEmpty) {
         if (result.activities.isNotEmpty) {
           _message(result.activities.join('\n'));
         }
         await showPlannerSheet<void>(
           context,
-          DeviceToolReviewSheet(drafts: result.drafts, open: _openTool),
+          DeviceToolReviewSheet(
+            drafts: result.drafts,
+            review: _reviewTool,
+            open: _openTool,
+          ),
         );
       } else if (result.activities.isNotEmpty) {
         _message(result.activities.join('\n'));

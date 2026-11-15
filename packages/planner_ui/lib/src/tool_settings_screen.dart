@@ -8,24 +8,94 @@ class ToolSettingsScreen extends StatefulWidget {
     super.key,
     required this.tools,
     required this.store,
+    required this.available,
+    this.calendar,
   });
 
   final List<DeviceTool> tools;
   final DeviceToolStore? store;
+  final bool Function(DeviceTool) available;
+  final DeviceCalendar? calendar;
 
   @override
   State<ToolSettingsScreen> createState() => _ToolSettingsScreenState();
 }
 
-class _ToolSettingsScreenState extends State<ToolSettingsScreen> {
+class _ToolSettingsScreenState extends State<ToolSettingsScreen>
+    with WidgetsBindingObserver {
   Set<String>? _enabled;
   bool _saving = false;
   bool _loadFailed = false;
+  bool? _calendarAccess;
+  bool _requestingAccess = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _read();
+    _readCalendarAccess();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _readCalendarAccess();
+  }
+
+  Future<void> _readCalendarAccess() async {
+    final calendar = widget.calendar;
+    if (calendar == null) return;
+    try {
+      final granted = await calendar.hasAccess();
+      if (mounted) setState(() => _calendarAccess = granted);
+    } catch (_) {
+      if (mounted) setState(() => _calendarAccess = null);
+    }
+  }
+
+  Future<void> _grantCalendarAccess() async {
+    final calendar = widget.calendar!;
+    setState(() => _requestingAccess = true);
+    try {
+      final granted = await calendar.requestAccess();
+      if (!mounted) return;
+      setState(() => _calendarAccess = granted);
+      if (!granted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You can grant Calendar access in device settings.'),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not request Calendar access.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _requestingAccess = false);
+    }
+  }
+
+  Future<void> _openCalendarSettings() async {
+    try {
+      await widget.calendar!.openSettings();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Open device settings to manage Calendar access.'),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _read() async {
@@ -35,7 +105,9 @@ class _ToolSettingsScreenState extends State<ToolSettingsScreen> {
     try {
       final enabled = <String>{};
       for (final tool in widget.tools) {
-        if (await store.isEnabled(tool.name)) enabled.add(tool.name);
+        if (widget.available(tool) && await store.isEnabled(tool.name)) {
+          enabled.add(tool.name);
+        }
       }
       if (mounted) setState(() => _enabled = enabled);
     } catch (_) {
@@ -81,9 +153,7 @@ class _ToolSettingsScreenState extends State<ToolSettingsScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: [
                 Text(
-                  available
-                      ? 'Choose which tools the assistant can use. You review each action before opening the phone, messaging, or email app. These tools require no additional device permissions.'
-                      : 'Communication tools are available on Android and iOS.',
+                  'Choose which tools the assistant can use. You review each device action or task completion before it runs.',
                   style: context.type.bodyMedium,
                 ),
                 const SizedBox(height: 16),
@@ -105,15 +175,60 @@ class _ToolSettingsScreenState extends State<ToolSettingsScreen> {
                         for (final tool in widget.tools)
                           SwitchListTile(
                             title: Text(tool.label),
-                            subtitle: Text(tool.description),
+                            subtitle: Text(
+                              widget.available(tool)
+                                  ? tool.description
+                                  : 'Unavailable on this device.',
+                            ),
                             value: enabled?.contains(tool.name) ?? false,
-                            onChanged: available && !_saving
+                            onChanged:
+                                available && widget.available(tool) && !_saving
                                 ? (value) => _setEnabled(tool, value)
                                 : null,
                           ),
                       ],
                     ),
                   ),
+                if (widget.calendar != null) ...[
+                  const SizedBox(height: 16),
+                  Panel(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Calendar access',
+                          style: context.type.titleMedium,
+                        ),
+                        Text(switch (_calendarAccess) {
+                          true => 'Granted',
+                          false => 'Off',
+                          null => 'Permission status unavailable',
+                        }),
+                        const Text(
+                          'Cameron reads events for the date you approve.',
+                        ),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            if (_calendarAccess != true)
+                              FilledButton.tonal(
+                                onPressed: _requestingAccess
+                                    ? null
+                                    : _grantCalendarAccess,
+                                child: const Text('Grant calendar access'),
+                              ),
+                            TextButton(
+                              onPressed: _requestingAccess
+                                  ? null
+                                  : _openCalendarSettings,
+                              child: const Text('Device settings'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

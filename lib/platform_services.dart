@@ -131,3 +131,46 @@ class MobileDictation implements PlannerDictation {
     await _speech.cancel();
   }
 }
+
+class MobileCalendar implements DeviceCalendar {
+  static bool get supported => _isMobile;
+  static const _channel = MethodChannel('cameron/calendar');
+
+  @override
+  Future<bool> hasAccess() async =>
+      await _channel.invokeMethod<bool>('hasAccess') ?? false;
+
+  @override
+  Future<bool> requestAccess() async =>
+      await _channel.invokeMethod<bool>('requestAccess') ?? false;
+
+  @override
+  Future<void> openSettings() => _channel.invokeMethod<void>('openSettings');
+
+  @override
+  Future<List<CalendarEvent>> eventsOn(DateTime day) async {
+    final start = DateTime(day.year, day.month, day.day);
+    final end = DateTime(day.year, day.month, day.day + 1);
+    final utcStart = DateTime.utc(day.year, day.month, day.day);
+    final utcEnd = DateTime.utc(day.year, day.month, day.day + 1);
+    final results = await _channel.invokeListMethod<Map<Object?, Object?>>(
+      'events',
+      {
+        'start': start.millisecondsSinceEpoch,
+        'end': end.millisecondsSinceEpoch,
+        'utcStart': utcStart.millisecondsSinceEpoch,
+        'utcEnd': utcEnd.millisecondsSinceEpoch,
+      },
+    );
+    if (results == null) throw StateError('Calendar did not return events.');
+    return [
+      for (final event in results)
+        CalendarEvent(
+          title: event['title'] as String,
+          start: DateTime.fromMillisecondsSinceEpoch(event['start'] as int),
+          end: DateTime.fromMillisecondsSinceEpoch(event['end'] as int),
+          allDay: event['allDay'] as bool,
+        ),
+    ];
+  }
+}
