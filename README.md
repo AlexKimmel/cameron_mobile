@@ -19,6 +19,8 @@ Cameron prepares read-only briefings at 07:00, 12:00, and 18:00 in the device’
 
 On Android and iOS, enable **Scheduled tasks** or **Daily briefings** in the Notifications section under **Tool settings**. Timed tasks use their start time and date-only tasks use 09:00 local time. Use **Task reminder** in the task editor and enable **Task reminders** in Notifications to receive an early alert. Task alerts offer a ten-minute snooze. **Quiet hours** delay task alerts and snoozes until the end of the selected period. Cameron schedules up to 48 pending task alerts and refreshes the queue when tasks change or the app resumes. Background delivery follows device notification and battery settings.
 
+Use **Backup** under **Tool settings** to export a local JSON file or preview and restore one. A restore replaces tasks and saved preferences, including tool switches, briefing focus, and notification settings. Model entries are saved as URLs so they can be downloaded from the model library.
+
 ## Develop with Widget Preview
 
 From the workspace root, use your IDE's Flutter Widget Preview panel or run:

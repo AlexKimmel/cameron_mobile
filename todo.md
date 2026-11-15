@@ -13,6 +13,6 @@
 - [x] Show scheduling conflicts and suggest available time slots before moving or adding a session.
 - [x] Add task search across titles and notes, including completed tasks.
 - [x] Add undo for task deletions and assistant-made changes so users can recover from mistakes quickly.
-- [ ] Add a local backup and restore flow for tasks and settings, with a preview before importing.
+- [x] Add a local backup and restore flow for tasks and settings, with a preview before importing.
 - [ ] Improve first-run onboarding with a sample day, a quick-add action, and the option to set up the assistant later.
 - [ ] Add configurable briefing times and an opt-in notification when a new briefing is ready.

@@ -38,7 +38,7 @@ class PreferencesTaskStore implements TaskStore {
 class PreferencesDeviceToolStore implements DeviceToolStore {
   final _prefs = SharedPreferencesAsync();
 
-  String _key(String name) => 'planner.tools.v1.$name';
+  String _key(String name) => '${PlannerPreferenceKeys.toolPrefix}$name';
 
   @override
   Future<bool> isEnabled(String name) async =>

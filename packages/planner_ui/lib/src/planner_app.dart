@@ -23,6 +23,7 @@ class PlannerApp extends StatelessWidget {
     this.openDeviceTool,
     this.calendar,
     this.notificationSettings,
+    this.backup,
     this.deviceTools = communicationTools,
     this.dictation,
     this.briefingStore,
@@ -41,6 +42,7 @@ class PlannerApp extends StatelessWidget {
   final List<DeviceTool> deviceTools;
   final DeviceCalendar? calendar;
   final PlannerNotificationSettings? notificationSettings;
+  final PlannerBackup? backup;
   final PlannerDictation? dictation;
   final BriefingStore? briefingStore;
   final Future<void> Function()? scheduleBriefings;
@@ -72,6 +74,7 @@ class PlannerApp extends StatelessWidget {
         openDeviceTool: openDeviceTool,
         calendar: calendar,
         notificationSettings: notificationSettings,
+        backup: backup,
         deviceTools: deviceTools,
         dictation: dictation,
         briefingStore: briefingStore,
@@ -94,6 +97,7 @@ class _PlannerHome extends StatefulWidget {
     required this.openDeviceTool,
     required this.calendar,
     required this.notificationSettings,
+    required this.backup,
     required this.deviceTools,
     required this.dictation,
     required this.briefingStore,
@@ -112,6 +116,7 @@ class _PlannerHome extends StatefulWidget {
   final List<DeviceTool> deviceTools;
   final DeviceCalendar? calendar;
   final PlannerNotificationSettings? notificationSettings;
+  final PlannerBackup? backup;
   final PlannerDictation? dictation;
   final BriefingStore? briefingStore;
   final Future<void> Function()? scheduleBriefings;
@@ -153,6 +158,7 @@ class _PlannerHomeState extends State<_PlannerHome>
   bool _installed = false;
   bool _installing = false;
   bool _managingModels = false;
+  bool _restoringBackup = false;
   bool _asking = false;
   bool _generatingResponse = false;
   bool _saving = false;
@@ -252,6 +258,7 @@ class _PlannerHomeState extends State<_PlannerHome>
         !_foreground ||
         _briefingRun != null ||
         _managingModels ||
+        _restoringBackup ||
         _settledBriefing == _briefingRevision ||
         _asking ||
         _startingVoice ||
@@ -498,6 +505,7 @@ class _PlannerHomeState extends State<_PlannerHome>
         _installing ||
         _asking ||
         _saving ||
+        _restoringBackup ||
         _tasks == null) {
       return;
     }
@@ -581,8 +589,8 @@ class _PlannerHomeState extends State<_PlannerHome>
     }
   }
 
-  void _showToolSettings() {
-    Navigator.of(context).push<void>(
+  Future<void> _showToolSettings() async {
+    final restored = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => ToolSettingsScreen(
           tools: _toolCatalog,
@@ -590,9 +598,28 @@ class _PlannerHomeState extends State<_PlannerHome>
           available: _toolAvailable,
           calendar: widget.calendar,
           notifications: widget.notificationSettings,
+          backup: widget.backup,
+          restoreBackup: _restoreBackup,
         ),
       ),
     );
+    if (mounted && restored == true) _message('Backup restored.');
+  }
+
+  Future<void> _restoreBackup(PlannerBackupSnapshot snapshot) async {
+    setState(() => _restoringBackup = true);
+    try {
+      await _briefingRun;
+      await widget.backup!.restore(snapshot);
+      if (!mounted) return;
+      await _read();
+      if (mounted) await _checkModel();
+    } finally {
+      if (mounted) {
+        setState(() => _restoringBackup = false);
+        unawaited(_refreshBriefing());
+      }
+    }
   }
 
   List<DeviceTool> get _toolCatalog => [
@@ -707,7 +734,8 @@ class _PlannerHomeState extends State<_PlannerHome>
         _saving ||
         _startingVoice ||
         _listening ||
-        _managingModels) {
+        _managingModels ||
+        _restoringBackup) {
       return;
     }
     final now = widget.clock();
@@ -980,7 +1008,12 @@ class _PlannerHomeState extends State<_PlannerHome>
     String? undoMessage,
   }) async {
     final tasks = _tasks;
-    if (tasks == null || _asking || _saving || _startingVoice || _listening) {
+    if (tasks == null ||
+        _asking ||
+        _saving ||
+        _startingVoice ||
+        _listening ||
+        _restoringBackup) {
       return false;
     }
     setState(() => _saving = true);
@@ -1046,7 +1079,12 @@ class _PlannerHomeState extends State<_PlannerHome>
               search: _taskSearch,
               onFilterChanged: (filter) => setState(() => _taskFilter = filter),
               onReschedule: _reschedule,
-              canEdit: !_asking && !_saving && !_listening && !_startingVoice,
+              canEdit:
+                  !_asking &&
+                  !_saving &&
+                  !_listening &&
+                  !_startingVoice &&
+                  !_restoringBackup,
               onEdit: (task) => _edit(task: task),
               onToggle: _toggle,
               onStepToggle: _toggleStep,
@@ -1058,7 +1096,12 @@ class _PlannerHomeState extends State<_PlannerHome>
   Widget build(BuildContext context) {
     final voiceAvailable =
         widget.dictation != null && widget.assistant.supported;
-    final busy = _asking || _startingVoice || _installing || _managingModels;
+    final busy =
+        _asking ||
+        _startingVoice ||
+        _installing ||
+        _managingModels ||
+        _restoringBackup;
     final status = switch ((
       _installing,
       _generatingResponse,
@@ -1127,7 +1170,8 @@ class _PlannerHomeState extends State<_PlannerHome>
                                     _asking ||
                                     _saving ||
                                     _listening ||
-                                    _startingVoice
+                                    _startingVoice ||
+                                    _restoringBackup
                                 ? null
                                 : () => _edit(timed: _tab == 0),
                             icon: const Icon(Icons.add),

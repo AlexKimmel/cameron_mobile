@@ -22,7 +22,7 @@ List<PlannerTask> expandTasks(List<PlannerTask> records, DateTime now) {
     final start = DateTime.parse(template.day);
     for (final date in template.repeat!.from(start, first)) {
       final day = dayKey(date);
-      final id = _occurrenceId(template.id, day);
+      final id = occurrenceTaskId(template.id, day);
       if (exceptions.containsKey(id)) continue;
       visible.add(_occurrence(template, day));
       if (date.isAfter(last)) break;
@@ -83,10 +83,10 @@ void detachTaskOccurrences(List<PlannerTask> records, PlannerTask template) {
   }
 }
 
-String _occurrenceId(String seriesId, String day) => 'series:$seriesId:$day';
+String occurrenceTaskId(String seriesId, String day) => 'series:$seriesId:$day';
 
 PlannerTask _occurrence(PlannerTask template, String day) => template.copyWith(
-  id: _occurrenceId(template.id, day),
+  id: occurrenceTaskId(template.id, day),
   day: day,
   repeat: null,
   completedOn: null,

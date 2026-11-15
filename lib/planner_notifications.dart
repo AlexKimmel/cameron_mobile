@@ -33,7 +33,7 @@ class LocalPlannerNotifications
 
   static const _taskIdStart = 1000;
   static const _taskLimit = 48;
-  static const _quietKey = 'planner.notifications.quiet';
+  static const _quietKey = PlannerPreferenceKeys.quietHours;
   static const _snoozePrefix = 'planner.notifications.snooze.';
   static const _taskDetails = NotificationDetails(
     android: AndroidNotificationDetails(
@@ -110,7 +110,7 @@ class LocalPlannerNotifications
   }
 
   String _key(PlannerNotificationKind kind) =>
-      'planner.notifications.${kind.name}';
+      PlannerPreferenceKeys.notification(kind);
 
   @override
   Future<bool> isEnabled(PlannerNotificationKind kind) async =>

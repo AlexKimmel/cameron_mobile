@@ -30,7 +30,7 @@ final _presets = {
   ),
 };
 
-class ModelStorage implements AssistantModelLibrary {
+class ModelStorage implements AssistantModelLibrary, AssistantModelCatalog {
   ModelStorage(this._directory, this._validate, this._release);
 
   final Future<String> Function() _directory;
@@ -61,9 +61,10 @@ class ModelStorage implements AssistantModelLibrary {
     final json =
         jsonDecode(await catalog.readAsString()) as Map<String, dynamic>;
     final imports = {
-      for (final url in json['imports'] as List) _parse(url as String),
+      for (final url in json['imports'] as List)
+        parseHuggingFaceModelUrl(url as String),
     };
-    final active = _parse(json['active'] as String);
+    final active = parseHuggingFaceModelUrl(json['active'] as String);
     return (
       active: _presets.containsKey(active) || imports.contains(active)
           ? active
@@ -89,6 +90,30 @@ class ModelStorage implements AssistantModelLibrary {
   Future<Uri> selected() async => (await _read()).active;
 
   @override
+  Future<ModelCatalogPreferences> readCatalog() async {
+    final catalog = await _read();
+    return ModelCatalogPreferences(
+      active: catalog.active,
+      sources: catalog.imports,
+    );
+  }
+
+  @override
+  Future<void> restoreCatalog(ModelCatalogPreferences preferences) =>
+      _write(() async {
+        final catalog = await _read();
+        final active = parseHuggingFaceModelUrl(preferences.active.toString());
+        final imports = {
+          ...catalog.imports,
+          for (final source in preferences.sources)
+            parseHuggingFaceModelUrl(source.toString()),
+          if (!_presets.containsKey(active)) active,
+        };
+        await _release(await file(catalog.active));
+        await _save(active, imports.difference(_presets.keys.toSet()));
+      });
+
+  @override
   Future<List<AssistantModel>> listModels() async {
     final catalog = await _read();
     return [
@@ -105,7 +130,7 @@ class ModelStorage implements AssistantModelLibrary {
 
   @override
   Future<void> addModel(String url) => _write(() async {
-    final source = _parse(url);
+    final source = parseHuggingFaceModelUrl(url);
     final catalog = await _read();
     if (_presets.containsKey(source) || !catalog.imports.add(source)) return;
     await _save(catalog.active, catalog.imports);
@@ -216,35 +241,4 @@ class ModelStorage implements AssistantModelLibrary {
       if (await partial.exists()) await partial.delete();
     }
   }
-}
-
-Uri _parse(String input) {
-  const error = FormatException('Enter a public Hugging Face GGUF file URL.');
-  final url = Uri.tryParse(input.trim());
-  if (url == null ||
-      url.scheme != 'https' ||
-      url.host != 'huggingface.co' ||
-      url.hasPort ||
-      url.userInfo.isNotEmpty) {
-    throw error;
-  }
-  final path = url.pathSegments.toList();
-  if (path.length < 5 ||
-      (path[2] != 'blob' && path[2] != 'resolve') ||
-      !path.last.toLowerCase().endsWith('.gguf') ||
-      RegExp(
-        r'-\d{5}-of-\d{5}\.gguf$',
-        caseSensitive: false,
-      ).hasMatch(path.last) ||
-      path.any(
-        (part) =>
-            part.isEmpty ||
-            part == '.' ||
-            part == '..' ||
-            part.contains(RegExp(r'[/\\\x00-\x1f]')),
-      )) {
-    throw error;
-  }
-  path[2] = 'resolve';
-  return Uri(scheme: 'https', host: 'huggingface.co', pathSegments: path);
 }

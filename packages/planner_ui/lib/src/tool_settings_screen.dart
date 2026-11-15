@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:planner/planner.dart';
 
+import 'backup_settings.dart';
 import 'design.dart';
 import 'notification_settings.dart';
 
@@ -12,6 +13,8 @@ class ToolSettingsScreen extends StatefulWidget {
     required this.available,
     this.calendar,
     this.notifications,
+    this.backup,
+    required this.restoreBackup,
   });
 
   final List<DeviceTool> tools;
@@ -19,6 +22,8 @@ class ToolSettingsScreen extends StatefulWidget {
   final bool Function(DeviceTool) available;
   final DeviceCalendar? calendar;
   final PlannerNotificationSettings? notifications;
+  final PlannerBackup? backup;
+  final Future<void> Function(PlannerBackupSnapshot) restoreBackup;
 
   @override
   State<ToolSettingsScreen> createState() => _ToolSettingsScreenState();
@@ -241,6 +246,14 @@ class _ToolSettingsScreenState extends State<ToolSettingsScreen>
                 if (widget.notifications case final notifications?) ...[
                   const SizedBox(height: 16),
                   NotificationSettingsPanel(settings: notifications),
+                ],
+                if (widget.backup case final backup?) ...[
+                  const SizedBox(height: 16),
+                  BackupSettingsPanel(
+                    backup: backup,
+                    restore: widget.restoreBackup,
+                    onRestored: () => Navigator.pop(context, true),
+                  ),
                 ],
               ],
             ),

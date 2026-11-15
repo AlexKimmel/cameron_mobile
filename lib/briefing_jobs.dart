@@ -26,7 +26,7 @@ class PreferencesBriefingStore implements BriefingStore {
   final LocalPlannerNotifications? notifications;
   final _prefs = SharedPreferencesAsync();
 
-  static const _focus = 'planner.briefing.focus';
+  static const _focus = PlannerPreferenceKeys.briefingFocus;
 
   String _key(BriefingSlot slot) => 'planner.briefing.v2.${slot.period.name}';
 

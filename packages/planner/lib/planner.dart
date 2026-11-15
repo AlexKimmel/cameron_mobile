@@ -1,3 +1,4 @@
+export 'src/backup.dart';
 export 'src/briefing.dart';
 export 'src/calendar.dart';
 export 'src/device_tools.dart';
