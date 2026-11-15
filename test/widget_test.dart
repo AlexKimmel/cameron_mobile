@@ -34,7 +34,9 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
   });
-  testWidgets('Creates and deletes a task from the editor', (tester) async {
+  testWidgets('Creates, deletes, and restores a task from the editor', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -62,6 +64,9 @@ void main() {
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
     expect(title, findsNothing);
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(title, findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

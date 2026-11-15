@@ -116,9 +116,36 @@ void main() {
       await tester.tap(find.text('Mark complete'));
       await tester.pumpAndSettle();
       expect((await store.read()).single.completedOn, '2026-11-15');
+      await tester.tap(find.text('Undo'));
+      await tester.pumpAndSettle();
+      expect((await store.read()).single.done, isFalse);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets('An assistant-created task can be undone from its confirmation', (
+    tester,
+  ) async {
+    final store = MemoryTaskStore();
+    await tester.pumpWidget(
+      PlannerApp(
+        store: store,
+        assistant: _DraftAssistant(
+          const PlannerToolCall(PlannerTools.createTask, {
+            'title': 'Make a plan',
+          }),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _ask(tester, 'Add a plan');
+    expect((await store.read()).single.title, 'Make a plan');
+
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(await store.read(), isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('Calendar access and reading wait for the approved date', (
     tester,

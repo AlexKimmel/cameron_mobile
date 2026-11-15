@@ -374,18 +374,22 @@ class _PlannerHomeState extends State<_PlannerHome>
     }
   }
 
-  void _message(String message, {SnackBarAction? action}) =>
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(message),
-            action: action,
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.fromLTRB(16, 0, 16, 84),
-          ),
-          snackBarAnimationStyle: context.reducedMotionStyle,
-        );
+  void _message(
+    String message, {
+    SnackBarAction? action,
+    Duration duration = const Duration(seconds: 4),
+  }) => ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: action,
+        duration: duration,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 84),
+      ),
+      snackBarAnimationStyle: context.reducedMotionStyle,
+    );
 
   Future<void> _showDownload() async {
     final library = widget.modelLibrary;
@@ -745,10 +749,9 @@ class _PlannerHomeState extends State<_PlannerHome>
       );
       if (!mounted || result.cancelled) return;
       _acceptToolResult(result);
+      final activityMessage = result.activities.join('\n');
       if (result.drafts.isNotEmpty) {
-        if (result.activities.isNotEmpty) {
-          _message(result.activities.join('\n'));
-        }
+        if (activityMessage.isNotEmpty) _message(activityMessage);
         await showPlannerSheet<void>(
           context,
           DeviceToolReviewSheet(
@@ -757,8 +760,19 @@ class _PlannerHomeState extends State<_PlannerHome>
             open: _openTool,
           ),
         );
-      } else if (result.activities.isNotEmpty) {
-        _message(result.activities.join('\n'));
+        if (mounted) {
+          _offerTaskUndo(
+            tasks,
+            _tasks!,
+            activityMessage.isEmpty
+                ? 'Assistant task changes saved.'
+                : activityMessage,
+          );
+        }
+      } else if (activityMessage.isNotEmpty) {
+        if (!_offerTaskUndo(tasks, result.tasks, activityMessage)) {
+          _message(activityMessage);
+        }
       } else {
         await showPlannerSheet<void>(
           context,
@@ -856,7 +870,7 @@ class _PlannerHomeState extends State<_PlannerHome>
           }
       }
       return updated;
-    });
+    }, undoMessage: result is DeleteTask ? 'Deleted “${target!.title}”' : null);
   }
 
   Future<int?> _pickScheduleTime(ScheduleConflict conflict) => showDialog<int>(
@@ -908,12 +922,66 @@ class _PlannerHomeState extends State<_PlannerHome>
     );
   }
 
-  Future<void> _write(
-    List<PlannerTask> Function(List<PlannerTask>) update,
-  ) async {
+  bool _offerTaskUndo(
+    List<PlannerTask> before,
+    List<PlannerTask> after,
+    String message,
+  ) {
+    final undo = TaskUndo.between(before, after);
+    if (undo == null) return false;
+    _message(
+      message,
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () => _undoTaskChanges(undo),
+      ),
+      duration: const Duration(seconds: 8),
+    );
+    return true;
+  }
+
+  Future<void> _undoTaskChanges(TaskUndo undo) async {
+    final current = _tasks;
+    if (current == null) return;
+    if (_asking || _saving || _startingVoice || _listening) {
+      _message(
+        'Finish the current action before undoing.',
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () => _undoTaskChanges(undo),
+        ),
+      );
+      return;
+    }
+    final restored = undo.restore(current);
+    if (restored == null) {
+      _message('A task has already changed since that action.');
+      return;
+    }
+    final saved = await _write((_) => restored);
+    if (!mounted) return;
+    if (saved) {
+      final message = 'Undid task changes';
+      setState(() => _activities = [message, ..._activities].take(20).toList());
+      _message(message);
+    } else {
+      _message(
+        'Could not undo the task changes.',
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () => _undoTaskChanges(undo),
+        ),
+      );
+    }
+  }
+
+  Future<bool> _write(
+    List<PlannerTask> Function(List<PlannerTask>) update, {
+    String? undoMessage,
+  }) async {
     final tasks = _tasks;
     if (tasks == null || _asking || _saving || _startingVoice || _listening) {
-      return;
+      return false;
     }
     setState(() => _saving = true);
     try {
@@ -924,10 +992,13 @@ class _PlannerHomeState extends State<_PlannerHome>
           _tasks = updated;
           _invalidateBriefing();
         });
+        if (undoMessage != null) _offerTaskUndo(tasks, updated, undoMessage);
         unawaited(_refreshBriefing());
       }
+      return true;
     } catch (_) {
       if (mounted) _message('Could not save changes. Try again.');
+      return false;
     } finally {
       if (mounted) setState(() => _saving = false);
     }
