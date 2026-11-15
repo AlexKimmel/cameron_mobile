@@ -134,6 +134,52 @@ void main() {
   });
 
   testWidgets(
+    'Uses larger targets and honors reduced motion on a narrow screen',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 680);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await tester.pumpWidget(tasksPreview());
+      await tester.pumpAndSettle();
+      final reschedule = find.byTooltip(
+        'Reschedule Review design tokens with team',
+      );
+      expect(tester.getSize(reschedule).shortestSide, greaterThanOrEqualTo(48));
+      expect(find.bySemanticsLabel('Start dictation'), findsOneWidget);
+      expect(
+        tester
+            .widget<ExpansionTile>(find.byType(ExpansionTile).first)
+            .expansionAnimationStyle,
+        AnimationStyle.noAnimation,
+      );
+
+      final mic = find.byKey(const ValueKey('voice-bubble'));
+      final resting = tester.getSize(mic).width;
+      await tester.tap(find.bySemanticsLabel('Start dictation'));
+      await tester.pump();
+      await tester.pump();
+      expect(tester.getSize(mic).width, greaterThan(resting));
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.byKey(const ValueKey('listening-wave')));
+      await tester.pumpAndSettle();
+      expect(find.text('Review transcript'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
     'Voice expands the dock and lets users retry and edit before submitting',
     (tester) async {
       tester.view.physicalSize = const Size(320, 640);

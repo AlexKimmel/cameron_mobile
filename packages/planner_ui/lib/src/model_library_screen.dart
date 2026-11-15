@@ -127,7 +127,8 @@ class _ModelLibraryScreenState extends State<ModelLibraryScreen> {
                             if (working != null) ...[
                               Text(working),
                               const SizedBox(height: 8),
-                              LinearProgressIndicator(value: _progress),
+                              if (!context.reduceMotion || _progress != null)
+                                LinearProgressIndicator(value: _progress),
                             ],
                             if (_error case final error?)
                               Text(

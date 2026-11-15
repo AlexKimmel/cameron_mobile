@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 const plannerSeed = Color(0xff9d3b23);
+const plannerTapTarget = 48.0;
 
 ThemeData plannerTheme(ColorScheme? dynamicScheme, {bool dark = false}) {
   final scheme =
@@ -11,6 +12,13 @@ ThemeData plannerTheme(ColorScheme? dynamicScheme, {bool dark = false}) {
       );
   return ThemeData(
     useMaterial3: true,
+    visualDensity: VisualDensity.standard,
+    materialTapTargetSize: MaterialTapTargetSize.padded,
+    iconButtonTheme: const IconButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: WidgetStatePropertyAll(Size.square(plannerTapTarget)),
+      ),
+    ),
     colorScheme: scheme,
     scaffoldBackgroundColor: scheme.surface,
     inputDecorationTheme: InputDecorationTheme(
@@ -22,6 +30,9 @@ ThemeData plannerTheme(ColorScheme? dynamicScheme, {bool dark = false}) {
 extension PlannerThemeContext on BuildContext {
   ColorScheme get palette => Theme.of(this).colorScheme;
   TextTheme get type => Theme.of(this).textTheme;
+  bool get reduceMotion => MediaQuery.disableAnimationsOf(this);
+  AnimationStyle? get reducedMotionStyle =>
+      reduceMotion ? AnimationStyle.noAnimation : null;
 
   String clock(int minutes) => MaterialLocalizations.of(this).formatTimeOfDay(
     TimeOfDay(hour: minutes ~/ 60 % 24, minute: minutes % 60),
@@ -147,26 +158,29 @@ class SectionHeading extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       alignment: WrapAlignment.spaceBetween,
       children: [
-        Text.rich(
-          TextSpan(
-            children: [
-              if (icon case final glyph?)
-                WidgetSpan(
-                  alignment: PlaceholderAlignment.middle,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 7),
-                    child: Icon(
-                      glyph,
-                      size: 18,
-                      color: context.palette.primary,
+        Semantics(
+          header: true,
+          child: Text.rich(
+            TextSpan(
+              children: [
+                if (icon case final glyph?)
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 7),
+                      child: Icon(
+                        glyph,
+                        size: 18,
+                        color: context.palette.primary,
+                      ),
                     ),
                   ),
-                ),
-              TextSpan(text: title),
-            ],
-          ),
-          style: context.type.titleMedium!.copyWith(
-            fontWeight: FontWeight.w700,
+                TextSpan(text: title),
+              ],
+            ),
+            style: context.type.titleMedium!.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
         ?trailing,

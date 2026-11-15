@@ -166,7 +166,13 @@ class _ToolSettingsScreenState extends State<ToolSettingsScreen>
                     ),
                   )
                 else if (available && enabled == null)
-                  const Center(child: CircularProgressIndicator())
+                  Center(
+                    child: context.reduceMotion
+                        ? const Text('Loading tool settings')
+                        : const CircularProgressIndicator(
+                            semanticsLabel: 'Loading tool settings',
+                          ),
+                  )
                 else
                   Panel(
                     padding: EdgeInsets.zero,

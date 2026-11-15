@@ -79,6 +79,11 @@ class PlannerDock extends StatelessWidget {
                             ),
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             iconSize: 21,
+                            minimumSize: const Size.square(plannerTapTarget),
+                            tapTargetSize: MaterialTapTargetSize.padded,
+                            animationDuration: context.reduceMotion
+                                ? Duration.zero
+                                : null,
                             textStyle: context.type.labelMedium,
                             selectedRadius: 22,
                             unselectedRadius: 22,
@@ -111,7 +116,7 @@ class PlannerDock extends StatelessWidget {
             child: LayoutBuilder(
               builder: (context, constraints) => TweenAnimationBuilder<double>(
                 tween: Tween(end: listening ? 1 : 0),
-                duration: MediaQuery.disableAnimationsOf(context)
+                duration: context.reduceMotion
                     ? Duration.zero
                     : const Duration(milliseconds: 220),
                 curve: Curves.easeOutCubic,
@@ -122,7 +127,9 @@ class PlannerDock extends StatelessWidget {
                     width:
                         voiceSize +
                         (constraints.maxWidth - voiceSize) * coverage,
-                    height: voiceSize,
+                    height:
+                        voiceSize +
+                        (constraints.maxHeight - voiceSize) * coverage,
                     child: child,
                   ),
                 ),
@@ -159,7 +166,7 @@ class _VoiceButton extends StatelessWidget {
         ? 'Listening. Tap to finish'
         : busy
         ? 'Working'
-        : 'Ask';
+        : 'Start dictation';
     final palette = context.palette;
     final ink = listening ? palette.onPrimary : palette.onSecondaryContainer;
     return Tooltip(
@@ -181,13 +188,15 @@ class _VoiceButton extends StatelessWidget {
               child: listening
                   ? _ListeningWave(level: level, color: ink)
                   : busy
-                  ? SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: ink,
-                      ),
-                    )
+                  ? context.reduceMotion
+                        ? Icon(Icons.hourglass_top, color: ink)
+                        : SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: ink,
+                            ),
+                          )
                   : Icon(Icons.mic_none_rounded, color: ink, size: 25),
             ),
           ),
@@ -217,7 +226,7 @@ class _ListeningWaveState extends State<_ListeningWave>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (context.reduceMotion) {
       _phase.stop();
     } else if (!_phase.isAnimating) {
       _phase.repeat();

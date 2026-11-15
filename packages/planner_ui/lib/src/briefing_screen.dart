@@ -56,7 +56,14 @@ class BriefingScreen extends StatelessWidget {
           ],
         ),
         if (loading)
-          const LinearProgressIndicator(semanticsLabel: 'Updating briefing'),
+          context.reduceMotion
+              ? Semantics(
+                  liveRegion: true,
+                  child: const Text('Updating briefing'),
+                )
+              : const LinearProgressIndicator(
+                  semanticsLabel: 'Updating briefing',
+                ),
         if (onRetry != null)
           TextButton(onPressed: onRetry, child: const Text('Retry briefing')),
         if (summary case final text?) ...[
@@ -214,44 +221,48 @@ class _TimelineEntry extends StatelessWidget {
           child: Panel(
             radius: 22,
             padding: EdgeInsets.zero,
-            child: InkWell(
-              onTap: onTap,
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
+            child: Semantics(
+              button: true,
+              hint: 'Edit session',
+              child: InkWell(
+                onTap: onTap,
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            task.duration == 0
+                                ? context.clock(start)
+                                : '${context.clock(start)} – ${context.clock(end)}${end >= 1440 ? ' (+1 day)' : ''}',
+                            style: context.type.labelSmall!.copyWith(
+                              color: color,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        task.title,
+                        style: context.type.titleSmall!.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (task.notes.isNotEmpty)
                         Text(
-                          task.duration == 0
-                              ? context.clock(start)
-                              : '${context.clock(start)} – ${context.clock(end)}${end >= 1440 ? ' (+1 day)' : ''}',
-                          style: context.type.labelSmall!.copyWith(
-                            color: color,
-                            fontWeight: FontWeight.w700,
+                          task.notes,
+                          style: context.type.bodySmall!.copyWith(
+                            color: palette.onSurfaceVariant,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      task.title,
-                      style: context.type.titleSmall!.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (task.notes.isNotEmpty)
-                      Text(
-                        task.notes,
-                        style: context.type.bodySmall!.copyWith(
-                          color: palette.onSurfaceVariant,
-                        ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

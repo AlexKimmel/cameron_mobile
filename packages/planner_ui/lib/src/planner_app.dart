@@ -377,6 +377,7 @@ class _PlannerHomeState extends State<_PlannerHome>
             behavior: SnackBarBehavior.floating,
             margin: const EdgeInsets.fromLTRB(16, 0, 16, 84),
           ),
+          snackBarAnimationStyle: context.reducedMotionStyle,
         );
 
   Future<void> _showDownload() async {
@@ -881,7 +882,13 @@ class _PlannerHomeState extends State<_PlannerHome>
                 label: const Text('Retry loading tasks'),
               ),
             )
-          : const Center(child: CircularProgressIndicator());
+          : Center(
+              child: context.reduceMotion
+                  ? const Text('Loading tasks')
+                  : const CircularProgressIndicator(
+                      semanticsLabel: 'Loading tasks',
+                    ),
+            );
     }
     return SingleChildScrollView(
       key: PageStorageKey(_tab),
@@ -1005,9 +1012,11 @@ class _PlannerHomeState extends State<_PlannerHome>
                             children: [
                               Text(status, style: context.type.labelMedium),
                               const SizedBox(height: 6),
-                              LinearProgressIndicator(
-                                value: _installing ? _progress : null,
-                              ),
+                              if (!context.reduceMotion ||
+                                  (_installing && _progress != null))
+                                LinearProgressIndicator(
+                                  value: _installing ? _progress : null,
+                                ),
                             ],
                           ),
                         ),

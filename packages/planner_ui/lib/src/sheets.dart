@@ -20,6 +20,7 @@ Future<T?> showPlannerSheet<T>(BuildContext context, Widget child) =>
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
+      sheetAnimationStyle: context.reducedMotionStyle,
       backgroundColor: context.palette.surface,
       constraints: const BoxConstraints(maxWidth: 560),
       builder: (context) => SafeArea(

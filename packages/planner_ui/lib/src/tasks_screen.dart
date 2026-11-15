@@ -46,6 +46,13 @@ class TasksScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final filterMotion = context.reduceMotion
+        ? ChipAnimationStyle(
+            selectAnimation: AnimationStyle.noAnimation,
+            avatarDrawerAnimation: AnimationStyle.noAnimation,
+            enableAnimation: AnimationStyle.noAnimation,
+          )
+        : null;
     final matching = tasks.where(filter.matches).toList();
     final open = matching.where((task) => !task.done).toList()
       ..sort((a, b) {
@@ -91,6 +98,7 @@ class TasksScreen extends StatelessWidget {
                 label: Text(option.label),
                 selected: filter == option,
                 showCheckmark: false,
+                chipAnimationStyle: filterMotion,
                 onSelected: (_) => onFilterChanged(option),
               ),
           ],
@@ -183,6 +191,7 @@ class TasksScreen extends StatelessWidget {
       padding: EdgeInsets.zero,
       child: ExpansionTile(
         key: PageStorageKey(title),
+        expansionAnimationStyle: context.reducedMotionStyle,
         leading: Icon(
           Icons.task_alt,
           color: context.palette.secondary,
@@ -198,7 +207,6 @@ class TasksScreen extends StatelessWidget {
                 icon: const Icon(Icons.check, size: 16),
                 tooltip: 'Reopen ${task.title}',
                 onPressed: canEdit ? () => onToggle(task) : null,
-                visualDensity: VisualDensity.compact,
               ),
               title: Text(
                 task.title,
@@ -254,71 +262,85 @@ class _TaskCard extends StatelessWidget {
                 ),
               ),
               Expanded(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: onEdit,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 2, 0, 2),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          task.title,
-                          style: context.type.titleSmall!.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        if (task.notes.isNotEmpty) ...[
-                          const SizedBox(height: 3),
-                          Text(
-                            task.notes,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: context.type.bodySmall!.copyWith(
-                              color: palette.onSurfaceVariant,
+                child: Semantics(
+                  button: onEdit != null,
+                  hint: onEdit == null ? null : 'Edit task',
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minHeight: plannerTapTarget,
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: onEdit,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 2, 0, 2),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              task.title,
+                              style: context.type.titleSmall!.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                          ),
-                        ],
-                        if (high ||
-                            task.startMinute != null ||
-                            task.duration > 0 ||
-                            task.origin != TaskOrigin.manual) ...[
-                          const SizedBox(height: 6),
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            children: [
-                              if (high)
-                                Pill(
-                                  'High',
-                                  color: palette.errorContainer,
-                                  foreground: palette.onErrorContainer,
+                            if (task.notes.isNotEmpty) ...[
+                              const SizedBox(height: 3),
+                              Text(
+                                task.notes,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: context.type.bodySmall!.copyWith(
+                                  color: palette.onSurfaceVariant,
                                 ),
-                              if (task.startMinute case final time?)
-                                Pill(context.clock(time), icon: Icons.schedule),
-                              if (task.duration > 0)
-                                Pill(
-                                  durationLabel(task.duration),
-                                  icon: Icons.timer_outlined,
-                                ),
-                              if (task.origin != TaskOrigin.manual)
-                                Tooltip(
-                                  message: task.origin == TaskOrigin.assistant
-                                      ? 'AI suggested'
-                                      : 'Tool action',
-                                  child: IconBadge(
-                                    task.origin == TaskOrigin.assistant
-                                        ? Icons.auto_awesome
-                                        : Icons.terminal,
-                                    size: 22,
-                                    color: palette.secondaryContainer,
-                                    foreground: palette.onSecondaryContainer,
-                                  ),
-                                ),
+                              ),
                             ],
-                          ),
-                        ],
-                      ],
+                            if (high ||
+                                task.startMinute != null ||
+                                task.duration > 0 ||
+                                task.origin != TaskOrigin.manual) ...[
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: [
+                                  if (high)
+                                    Pill(
+                                      'High',
+                                      color: palette.errorContainer,
+                                      foreground: palette.onErrorContainer,
+                                    ),
+                                  if (task.startMinute case final time?)
+                                    Pill(
+                                      context.clock(time),
+                                      icon: Icons.schedule,
+                                    ),
+                                  if (task.duration > 0)
+                                    Pill(
+                                      durationLabel(task.duration),
+                                      icon: Icons.timer_outlined,
+                                    ),
+                                  if (task.origin != TaskOrigin.manual)
+                                    Tooltip(
+                                      message:
+                                          task.origin == TaskOrigin.assistant
+                                          ? 'AI suggested'
+                                          : 'Tool action',
+                                      child: IconBadge(
+                                        task.origin == TaskOrigin.assistant
+                                            ? Icons.auto_awesome
+                                            : Icons.terminal,
+                                        size: 22,
+                                        color: palette.secondaryContainer,
+                                        foreground:
+                                            palette.onSecondaryContainer,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -339,8 +361,8 @@ class _TaskCard extends StatelessWidget {
               child: ExpansionTile(
                 shape: const Border(),
                 collapsedShape: const Border(),
-                dense: true,
-                minTileHeight: 44,
+                minTileHeight: plannerTapTarget,
+                expansionAnimationStyle: context.reducedMotionStyle,
                 leading: Icon(
                   Icons.checklist,
                   size: 18,
@@ -355,7 +377,6 @@ class _TaskCard extends StatelessWidget {
                 children: [
                   for (final (index, step) in task.steps.indexed)
                     CheckboxListTile(
-                      dense: true,
                       value: step.done,
                       title: Text(
                         step.title,
