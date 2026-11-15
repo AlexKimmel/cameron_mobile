@@ -1,0 +1,14 @@
+name: planner_ui
+description: Material 3 Expressive planner screens and widget previews.
+publish_to: none
+environment:
+  sdk: ^3.14.0
+  flutter: '>=3.50.0'
+resolution: workspace
+dependencies:
+  flutter:
+    sdk: flutter
+  dynamic_color: ^2.1.0
+  material_3_expressive: ^1.2.1
+  material_ui: ^1.11.0
+  planner:

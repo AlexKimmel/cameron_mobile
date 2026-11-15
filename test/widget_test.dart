@@ -1,0 +1,99 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:planner_ui/previews.dart';
+
+void main() {
+  testWidgets('Navigates between the briefing and the task list', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(briefingPreview());
+    await tester.pumpAndSettle();
+    expect(find.text('Daily Briefing'), findsOneWidget);
+
+    expect(find.text('Tasks & Tools'), findsNothing);
+    await tester.tap(find.bySemanticsLabel('Tasks & Tools'));
+    await tester.pumpAndSettle();
+    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('Tasks & Tools').hitTestable(), findsOneWidget);
+    expect(find.text('Briefing'), findsNothing);
+    expect(find.text('Review design tokens with team'), findsOneWidget);
+
+    await tester.tap(find.text('3 sub-steps'));
+    await tester.pumpAndSettle();
+    expect(find.text('Verify contrast for surface tint'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Complete Review design tokens with team'));
+    await tester.pumpAndSettle();
+    expect(find.text('Review design tokens with team'), findsNothing);
+    expect(find.text('Completed · 3'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+  testWidgets('Creates and deletes a task from the editor', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(tasksPreview());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Add task'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Task name'),
+      'Pick up groceries',
+    );
+    await tester.ensureVisible(find.text('Save task'));
+    await tester.tap(find.text('Save task'));
+    await tester.pumpAndSettle();
+
+    final title = find.text('Pick up groceries');
+    await tester.ensureVisible(title);
+    await tester.tap(title);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Delete task'));
+    await tester.tap(find.text('Delete task'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    expect(title, findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Voice starts from the dock and submits the transcript on stop', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(tasksPreview());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.mic_none_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.byKey(const ValueKey('listening-wave')), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('listening-wave')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('listening-wave')), findsNothing);
+    expect(find.text('Take a break'), findsOneWidget);
+    await tester.drag(
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, -1000),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getBottomLeft(find.text('Completed · 2')).dy,
+      lessThan(tester.getTopLeft(find.byIcon(Icons.mic_none_rounded)).dy),
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+}

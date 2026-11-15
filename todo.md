@@ -1,0 +1,10 @@
+- [ ] Let users import their own compatible Hugging Face model and manage downloaded models.
+- [ ] Improve local model response speed and reliability with stricter structured JSON output and validation.
+- [ ] Add more assistant tools, including calendar event reading and task completion actions, with clear user review and permissions.
+- [ ] Fix layout and interaction bugs on the Tasks & Tools page, including task filtering, editing, and completion states.
+- [ ] Make the daily briefing more reactive to changes in tasks and time of day, and let users provide input to shape the briefing.
+- [ ] Improve voice input so the animated listening bubble expands over the tab selectors while recording.
+- [ ] Show the recognized spoken text for review after dictation, with clear edit, submit, and retry actions.
+- [ ] Improve task list organization with stronger date grouping, overdue indicators, and easier rescheduling.
+- [ ] Add clear loading, error, and retry states for model downloads, inference, dictation, and tool handoffs.
+- [ ] Improve accessibility with larger tap targets, useful screen reader labels, and reduced-motion support across animated controls.

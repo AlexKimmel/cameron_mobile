@@ -1,0 +1,6 @@
+name: planner
+description: Local planner models and tool contracts.
+publish_to: none
+environment:
+  sdk: ^3.14.0
+resolution: workspace

@@ -1,0 +1,10 @@
+name: planner_assistant
+description: On-device BotPsy GGUF inference for the planner.
+publish_to: none
+environment:
+  sdk: ^3.14.0
+resolution: workspace
+dependencies:
+  crypto: ^3.0.7
+  llamadart: ^0.19.10
+  planner:
