@@ -148,6 +148,7 @@ class _PlannerHomeState extends State<_PlannerHome>
   bool _installing = false;
   bool _managingModels = false;
   bool _asking = false;
+  bool _generatingResponse = false;
   bool _saving = false;
   double? _progress;
   Timer? _clockRefresh;
@@ -342,6 +343,7 @@ class _PlannerHomeState extends State<_PlannerHome>
   }
 
   Future<void> _checkModel() async {
+    if (!_checking) setState(() => _checking = true);
     try {
       final installed =
           widget.assistant.supported && await widget.assistant.isInstalled();
@@ -353,21 +355,29 @@ class _PlannerHomeState extends State<_PlannerHome>
         }
       }
     } catch (_) {
-      if (mounted) _message('Could not check local model storage.');
+      if (mounted) {
+        setState(() => _installed = false);
+        _message(
+          'Could not check local model storage.',
+          action: SnackBarAction(label: 'Retry', onPressed: _checkModel),
+        );
+      }
     } finally {
       if (mounted) setState(() => _checking = false);
     }
   }
 
-  void _message(String message) => ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 84),
-      ),
-    );
+  void _message(String message, {SnackBarAction? action}) =>
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(message),
+            action: action,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 84),
+          ),
+        );
 
   Future<void> _showDownload() async {
     final library = widget.modelLibrary;
@@ -424,7 +434,12 @@ class _PlannerHomeState extends State<_PlannerHome>
         unawaited(_refreshBriefing());
       }
     } catch (_) {
-      if (mounted) _message('Download failed. Tap the mic to retry.');
+      if (mounted) {
+        _message(
+          'Could not download the assistant model.',
+          action: SnackBarAction(label: 'Retry', onPressed: _install),
+        );
+      }
     } finally {
       if (mounted) setState(() => _installing = false);
     }
@@ -439,7 +454,7 @@ class _PlannerHomeState extends State<_PlannerHome>
   }
 
   Future<void> _finishVoice(PlannerDictation dictation) async {
-    _endingVoice = true;
+    setState(() => _endingVoice = true);
     final run = _voiceRun;
     void fail() {
       if (!mounted || _voiceRun != run) return;
@@ -450,7 +465,7 @@ class _PlannerHomeState extends State<_PlannerHome>
         _endingVoice = false;
       });
       unawaited(_cancelDictation());
-      _message('Could not finish dictation.');
+      _dictationError('Could not finish dictation.');
     }
 
     _finishVoiceTimer = Timer(const Duration(seconds: 4), fail);
@@ -498,10 +513,10 @@ class _PlannerHomeState extends State<_PlannerHome>
         _endingVoice = false;
       });
       if (transcript.trim().isNotEmpty) {
-        unawaited(_reviewTranscript(transcript.trim()));
+        unawaited(_reviewTranscript(transcript.trim(), error: error));
         return;
       }
-      _message(error ?? 'No speech detected.');
+      _dictationError(error ?? 'No speech detected.');
       unawaited(_refreshBriefing());
     }
 
@@ -529,11 +544,18 @@ class _PlannerHomeState extends State<_PlannerHome>
     }
   }
 
-  Future<void> _reviewTranscript(String transcript) async {
+  void _dictationError(String message) {
+    _message(
+      message,
+      action: SnackBarAction(label: 'Retry', onPressed: _voice),
+    );
+  }
+
+  Future<void> _reviewTranscript(String transcript, {String? error}) async {
     setState(() => _reviewingVoice = true);
     final result = await showPlannerSheet<PromptResult>(
       context,
-      PromptSheet(transcript: transcript),
+      PromptSheet(transcript: transcript, dictationError: error),
     );
     if (!mounted) return;
     setState(() => _reviewingVoice = false);
@@ -669,9 +691,20 @@ class _PlannerHomeState extends State<_PlannerHome>
 
   Future<void> _ask(String prompt) async {
     final tasks = _tasks;
-    if (tasks == null || _asking || _saving) return;
+    if (tasks == null ||
+        _asking ||
+        _saving ||
+        _startingVoice ||
+        _listening ||
+        _managingModels) {
+      return;
+    }
     final now = widget.clock();
-    setState(() => _asking = true);
+    setState(() {
+      _asking = true;
+      _generatingResponse = true;
+    });
+    var generated = false;
     try {
       await _briefingRun;
       if (!mounted) return;
@@ -684,6 +717,11 @@ class _PlannerHomeState extends State<_PlannerHome>
         deviceTools: offered,
       );
       if (!mounted) return;
+      if (reply.calls.isEmpty && reply.text.trim().isEmpty) {
+        throw StateError('Empty assistant response.');
+      }
+      generated = true;
+      setState(() => _generatingResponse = false);
       final enabled = await _enabledTools(
         offered.where(
           (tool) => reply.calls.any((call) => call.name == tool.name),
@@ -718,19 +756,30 @@ class _PlannerHomeState extends State<_PlannerHome>
           context,
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SelectableText(reply.text.isEmpty ? 'No response.' : reply.text),
-            ],
+            children: [SelectableText(reply.text)],
           ),
         );
       }
-    } on FormatException catch (error) {
-      if (mounted) _message(error.message);
-    } catch (_) {
-      if (mounted) _message('Could not finish that request. Try again.');
+    } catch (error) {
+      if (!mounted) return;
+      if (!generated) {
+        _message(
+          'Could not generate an assistant response.',
+          action: SnackBarAction(label: 'Retry', onPressed: () => _ask(prompt)),
+        );
+      } else {
+        _message(
+          error is FormatException
+              ? error.message
+              : 'Could not apply the assistant response.',
+        );
+      }
     } finally {
       if (mounted) {
-        setState(() => _asking = false);
+        setState(() {
+          _asking = false;
+          _generatingResponse = false;
+        });
         unawaited(_refreshBriefing());
       }
     }
@@ -869,6 +918,18 @@ class _PlannerHomeState extends State<_PlannerHome>
     final voiceAvailable =
         widget.dictation != null && widget.assistant.supported;
     final busy = _asking || _startingVoice || _installing || _managingModels;
+    final status = switch ((
+      _installing,
+      _generatingResponse,
+      _startingVoice,
+      _endingVoice,
+    )) {
+      (true, _, _, _) => 'Downloading assistant model',
+      (_, true, _, _) => 'Generating response',
+      (_, _, true, _) => 'Starting dictation',
+      (_, _, _, true) => 'Finishing dictation',
+      _ => null,
+    };
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -934,10 +995,22 @@ class _PlannerHomeState extends State<_PlannerHome>
                         ],
                       ),
                     ),
-                    if (_installing)
-                      LinearProgressIndicator(
-                        value: _progress,
-                        semanticsLabel: 'Assistant download',
+                    if (status != null)
+                      Semantics(
+                        liveRegion: true,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(status, style: context.type.labelMedium),
+                              const SizedBox(height: 6),
+                              LinearProgressIndicator(
+                                value: _installing ? _progress : null,
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     Expanded(child: _screen(context)),
                   ],

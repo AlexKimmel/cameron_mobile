@@ -321,9 +321,10 @@ class RetryDictation extends PromptResult {
 }
 
 class PromptSheet extends StatefulWidget {
-  const PromptSheet({super.key, this.transcript});
+  const PromptSheet({super.key, this.transcript, this.dictationError});
 
   final String? transcript;
+  final String? dictationError;
 
   @override
   State<PromptSheet> createState() => _PromptSheetState();
@@ -349,6 +350,8 @@ class _PromptSheetState extends State<PromptSheet> {
         children: [
           if (reviewing) ...[
             Text('Review transcript', style: context.type.headlineSmall),
+            if (widget.dictationError case final error?)
+              Text(error, style: TextStyle(color: context.palette.error)),
             const SizedBox(height: 12),
           ],
           TextFormField(
@@ -413,12 +416,15 @@ class DeviceToolReviewSheet extends StatefulWidget {
 
 class _DeviceToolReviewSheetState extends State<DeviceToolReviewSheet> {
   final _opened = <int>{};
-  bool _opening = false;
+  int? _pending;
+  int? _failed;
   String? _error;
 
   Future<void> _open(int index) async {
+    if (_pending != null || _opened.contains(index)) return;
     setState(() {
-      _opening = true;
+      _pending = index;
+      _failed = null;
       _error = null;
     });
     try {
@@ -428,16 +434,21 @@ class _DeviceToolReviewSheetState extends State<DeviceToolReviewSheet> {
         setState(() => _opened.add(index));
         if (_opened.length == widget.drafts.length) Navigator.pop(context);
       } else {
-        setState(() => _error = 'No app could open this action.');
+        _showError(index, 'No app could open this action.');
       }
     } on FormatException catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) _showError(index, error.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not open this action.');
+      if (mounted) _showError(index, 'Could not finish this action.');
     } finally {
-      if (mounted) setState(() => _opening = false);
+      if (mounted) setState(() => _pending = null);
     }
   }
+
+  void _showError(int index, String message) => setState(() {
+    _failed = index;
+    _error = message;
+  });
 
   @override
   Widget build(BuildContext context) => Column(
@@ -460,16 +471,28 @@ class _DeviceToolReviewSheetState extends State<DeviceToolReviewSheet> {
                     SelectableText(field.value),
                   ],
                   const SizedBox(height: 12),
+                  if (_failed == index)
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        _error!,
+                        style: TextStyle(color: context.palette.error),
+                      ),
+                    ),
                   M3EButton.filled(
-                    onPressed: _opening ? null : () => _open(index),
-                    label: Text(draft.tool.reviewAction),
+                    onPressed: _pending == null ? () => _open(index) : null,
+                    label: Text(
+                      _pending == index
+                          ? 'Working…'
+                          : _failed == index
+                          ? 'Retry'
+                          : draft.tool.reviewAction,
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-      if (_error case final error?)
-        Text(error, style: TextStyle(color: context.palette.error)),
     ],
   );
 }

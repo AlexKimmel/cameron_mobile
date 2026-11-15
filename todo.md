@@ -5,7 +5,7 @@
 - [x] Improve voice input so the animated listening bubble expands over the tab selectors while recording.
 - [x] Show the recognized spoken text for review after dictation, with clear edit, submit, and retry actions.
 - [x] Improve task list organization with stronger date grouping, overdue indicators, and easier rescheduling.
-- [ ] Add clear loading, error, and retry states for model downloads, inference, dictation, and tool handoffs.
+- [x] Add clear loading, error, and retry states for model downloads, inference, dictation, and tool handoffs.
 - [ ] Improve accessibility with larger tap targets, useful screen reader labels, and reduced-motion support across animated controls.
 - [ ] Add recurring tasks with flexible schedules and the option to edit one occurrence or the whole series. Here create tool calls for the local llm.
 - [ ] Add notification support. Such that when tasks have exact dates or a new breafing is available notifications are send. 

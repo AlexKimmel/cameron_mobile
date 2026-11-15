@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:planner/planner.dart';
@@ -148,7 +150,7 @@ void main() {
     expect(find.textContaining('Calendar access is off'), findsOneWidget);
 
     calendar.canGrant = true;
-    await tester.tap(find.text('Read calendar'));
+    await tester.tap(find.text('Retry'));
     await tester.pumpAndSettle();
     expect(calendar.requests, 2);
     expect(calendar.daysRead, [DateTime(2026, 11, 17)]);
@@ -157,6 +159,75 @@ void main() {
     await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
     expect(find.text('Review actions'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+    'Shows inference progress and retries the same prompt after failure',
+    (tester) async {
+      final assistant = _RetryAssistant();
+      await tester.pumpWidget(
+        PlannerApp(store: MemoryTaskStore(), assistant: assistant),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Type a request'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField), 'Review my plan');
+      await tester.tap(find.text('Send'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(find.text('Generating response'), findsOneWidget);
+
+      assistant.first.completeError(StateError('Model failed'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Could not generate an assistant response.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      expect(assistant.prompts, ['Review my plan', 'Review my plan']);
+      expect(find.text('Your plan is clear.'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets('Retry selects a model only after the download succeeds', (
+    tester,
+  ) async {
+    final library = _RetryModelLibrary();
+    await tester.pumpWidget(
+      PlannerApp(
+        store: MemoryTaskStore(),
+        assistant: _DraftAssistant(),
+        modelLibrary: library,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Assistant models'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Download'));
+    await tester.pump();
+    expect(find.text('Downloading Test model'), findsOneWidget);
+    expect(
+      tester
+          .widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator))
+          .value,
+      .4,
+    );
+    library.first.completeError(
+      const FormatException('Download was interrupted.'),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Download was interrupted.'), findsOneWidget);
+    expect(library.selected, isFalse);
+
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(library.downloads, 2);
+    expect(library.selected, isTrue);
+    expect(find.text('In use'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -274,4 +345,62 @@ class _DraftAssistant implements PlannerAssistant {
 
   @override
   Future<void> dispose() async {}
+}
+
+class _RetryAssistant extends _DraftAssistant {
+  final first = Completer<AssistantReply>();
+  final prompts = <String>[];
+
+  @override
+  Future<AssistantReply> ask(
+    String prompt, {
+    required List<PlannerTask> tasks,
+    required DateTime now,
+    bool readOnly = false,
+    List<DeviceTool> deviceTools = const [],
+  }) async {
+    prompts.add(prompt);
+    if (prompts.length == 1) return first.future;
+    return const AssistantReply(text: 'Your plan is clear.');
+  }
+}
+
+class _RetryModelLibrary implements AssistantModelLibrary {
+  final source = Uri.parse(
+    'https://huggingface.co/example/tool/resolve/main/model.gguf',
+  );
+  final first = Completer<void>();
+  int downloads = 0;
+  bool downloaded = false;
+  bool selected = false;
+
+  @override
+  Future<List<AssistantModel>> listModels() async => [
+    AssistantModel(
+      source: source,
+      name: 'Test model',
+      active: selected,
+      downloaded: downloaded,
+    ),
+  ];
+
+  @override
+  Future<void> downloadModel(
+    Uri source,
+    void Function(double?) onProgress,
+  ) async {
+    downloads++;
+    onProgress(.4);
+    if (downloads == 1) await first.future;
+    downloaded = true;
+  }
+
+  @override
+  Future<void> selectModel(Uri source) async => selected = true;
+
+  @override
+  Future<void> addModel(String url) async {}
+
+  @override
+  Future<void> deleteDownload(Uri source) async {}
 }
