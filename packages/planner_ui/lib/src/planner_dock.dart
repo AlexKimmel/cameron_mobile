@@ -36,67 +36,105 @@ class PlannerDock extends StatelessWidget {
       dockInk.withValues(alpha: .14),
       dockColor,
     );
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    const voiceSize = 56.0;
+    final showsVoice = onVoice != null || listening || busy;
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
-        Flexible(
-          child: Material(
-            color: dockColor,
-            elevation: 4,
-            shadowColor: context.palette.shadow,
-            shape: const StadiumBorder(),
-            child: Padding(
-              padding: const EdgeInsets.all(5),
-              child: M3EButtonGroup(
-                semanticLabel: 'Planner sections',
-                size: M3EButtonSize.sm,
-                selectedIndex: tab,
-                selectionRequired: true,
-                onSelectedIndexChanged: (index) {
-                  if (index != null) onTab(index);
-                },
-                decoration: M3EButtonDecoration(
-                  backgroundColor: WidgetStateProperty.resolveWith(
-                    (states) => states.contains(WidgetState.selected)
-                        ? selection
-                        : Colors.transparent,
-                  ),
-                  foregroundColor: WidgetStateProperty.resolveWith(
-                    (states) => states.contains(WidgetState.selected)
-                        ? dockInk
-                        : dockInk.withValues(alpha: .8),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  iconSize: 21,
-                  textStyle: context.type.labelMedium,
-                  selectedRadius: 22,
-                  unselectedRadius: 22,
-                ),
-                actions: [
-                  for (final (index, item) in const [
-                    (Icons.view_day_outlined, 'Briefing'),
-                    (Icons.checklist_rounded, 'Tasks & Tools'),
-                  ].indexed)
-                    M3EButtonGroupAction(
-                      icon: Icon(item.$1),
-                      label: index == tab ? Text(item.$2) : null,
-                      semanticLabel: item.$2,
-                      tooltip: index == tab ? null : item.$2,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: ExcludeSemantics(
+                excluding: listening,
+                child: ExcludeFocus(
+                  excluding: listening,
+                  child: IgnorePointer(
+                    ignoring: listening,
+                    child: Material(
+                      color: dockColor,
+                      elevation: 4,
+                      shadowColor: context.palette.shadow,
+                      shape: const StadiumBorder(),
+                      child: Padding(
+                        padding: const EdgeInsets.all(5),
+                        child: M3EButtonGroup(
+                          semanticLabel: 'Planner sections',
+                          size: M3EButtonSize.sm,
+                          selectedIndex: tab,
+                          selectionRequired: true,
+                          onSelectedIndexChanged: (index) {
+                            if (index != null) onTab(index);
+                          },
+                          decoration: M3EButtonDecoration(
+                            backgroundColor: WidgetStateProperty.resolveWith(
+                              (states) => states.contains(WidgetState.selected)
+                                  ? selection
+                                  : Colors.transparent,
+                            ),
+                            foregroundColor: WidgetStateProperty.resolveWith(
+                              (states) => states.contains(WidgetState.selected)
+                                  ? dockInk
+                                  : dockInk.withValues(alpha: .8),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            iconSize: 21,
+                            textStyle: context.type.labelMedium,
+                            selectedRadius: 22,
+                            unselectedRadius: 22,
+                          ),
+                          actions: [
+                            for (final (index, item) in const [
+                              (Icons.view_day_outlined, 'Briefing'),
+                              (Icons.checklist_rounded, 'Tasks & Tools'),
+                            ].indexed)
+                              M3EButtonGroupAction(
+                                icon: Icon(item.$1),
+                                label: index == tab ? Text(item.$2) : null,
+                                semanticLabel: item.$2,
+                                tooltip: index == tab ? null : item.$2,
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
-                ],
+                  ),
+                ),
+              ),
+            ),
+            if (showsVoice)
+              const SizedBox(width: voiceSize + 6, height: voiceSize),
+          ],
+        ),
+        if (showsVoice)
+          Positioned.fill(
+            child: LayoutBuilder(
+              builder: (context, constraints) => TweenAnimationBuilder<double>(
+                tween: Tween(end: listening ? 1 : 0),
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                builder: (context, coverage, child) => Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: SizedBox(
+                    key: const ValueKey('voice-bubble'),
+                    width:
+                        voiceSize +
+                        (constraints.maxWidth - voiceSize) * coverage,
+                    height: voiceSize,
+                    child: child,
+                  ),
+                ),
+                child: _VoiceButton(
+                  onPressed: onVoice,
+                  listening: listening,
+                  busy: busy,
+                  level: level,
+                ),
               ),
             ),
           ),
-        ),
-        if (onVoice != null || listening || busy) ...[
-          const SizedBox(width: 6),
-          _VoiceButton(
-            onPressed: onVoice,
-            listening: listening,
-            busy: busy,
-            level: level,
-          ),
-        ],
       ],
     );
   }
@@ -139,14 +177,7 @@ class _VoiceButton extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onPressed,
-            child: AnimatedContainer(
-              duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              height: 56,
-              width: listening ? 88 : 56,
-              alignment: Alignment.center,
+            child: Center(
               child: listening
                   ? _ListeningWave(level: level, color: ink)
                   : busy

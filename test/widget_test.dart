@@ -143,15 +143,25 @@ void main() {
     await tester.pumpWidget(tasksPreview());
     await tester.pumpAndSettle();
 
+    final bubble = find.byKey(const ValueKey('voice-bubble'));
+    final resting = tester.getRect(bubble);
     await tester.tap(find.byIcon(Icons.mic_none_rounded));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
     expect(find.byKey(const ValueKey('listening-wave')), findsOneWidget);
+    final expanded = tester.getRect(bubble);
+    expect(expanded.right, resting.right);
+    expect(expanded.width, greaterThan(resting.width + 80));
+    expect(
+      find.bySemanticsLabel('Planner sections').hitTestable(),
+      findsNothing,
+    );
     expect(find.byType(TextField), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('listening-wave')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('listening-wave')), findsNothing);
+    expect(tester.getSize(bubble).width, resting.width);
     expect(find.text('Take a break'), findsOneWidget);
     await tester.drag(
       find.byType(SingleChildScrollView).first,
