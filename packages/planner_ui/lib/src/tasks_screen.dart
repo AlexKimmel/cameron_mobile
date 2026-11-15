@@ -297,6 +297,7 @@ class _TaskCard extends StatelessWidget {
                             if (high ||
                                 task.startMinute != null ||
                                 task.duration > 0 ||
+                                task.occurrence != null ||
                                 task.origin != TaskOrigin.manual) ...[
                               const SizedBox(height: 6),
                               Wrap(
@@ -319,6 +320,8 @@ class _TaskCard extends StatelessWidget {
                                       durationLabel(task.duration),
                                       icon: Icons.timer_outlined,
                                     ),
+                                  if (task.occurrence != null)
+                                    const Pill('Repeats', icon: Icons.repeat),
                                   if (task.origin != TaskOrigin.manual)
                                     Tooltip(
                                       message:

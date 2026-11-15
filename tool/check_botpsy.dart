@@ -94,6 +94,29 @@ Future<void> main(List<String> args) async {
       throw StateError('Unexpected summary: ${summary.text}');
     }
     stdout.writeln('Answered a read-only schedule question.');
+
+    final recurrence = await model.ask(
+      'Create a daily repeating task titled Water the plants at 8:00, starting 2026-11-17 and ending 2026-11-19.',
+      tasks: const [],
+      now: now,
+    );
+    final recurring = await tools.apply(
+      recurrence.calls,
+      store: store,
+      currentTasks: tasks,
+      now: now,
+    );
+    final plantTask = recurring.tasks
+        .where((task) => task.repeat != null)
+        .singleOrNull;
+    if (plantTask?.repeat?.frequency != RepeatFrequency.daily ||
+        plantTask?.day != '2026-11-17' ||
+        plantTask?.repeat?.until != '2026-11-19') {
+      throw StateError(
+        'Unexpected recurrence tool call: ${recurrence.calls.map((call) => call.arguments).toList()}',
+      );
+    }
+    stdout.writeln('Created a recurring task with an end date.');
   } finally {
     await model.dispose();
     await temp?.delete(recursive: true);

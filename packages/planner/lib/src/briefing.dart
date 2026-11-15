@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 
+import 'recurrence.dart';
 import 'task.dart';
 import 'tools.dart';
 
@@ -76,7 +77,7 @@ class BriefingService {
 
     final today = dayKey(now);
     final tomorrow = dayKey(DateTime(now.year, now.month, now.day + 1));
-    final relevant = tasks
+    final relevant = expandTasks(tasks, now)
         .where(
           (task) =>
               task.day == today ||

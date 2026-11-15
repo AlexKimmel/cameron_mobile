@@ -666,9 +666,7 @@ class _PlannerHomeState extends State<_PlannerHome>
 
   Map<String, String> _reviewTool(DeviceToolDraft draft) {
     if (draft.tool.name == taskCompletionTool.name) {
-      final task = _tasks!.firstWhere(
-        (task) => task.id == draft.arguments['id'],
-      );
+      final task = findTaskRecord(_tasks!, draft.arguments['id']!)!;
       return {'Task': task.title, 'Scheduled date': task.day};
     }
     return {
@@ -713,7 +711,7 @@ class _PlannerHomeState extends State<_PlannerHome>
       if (!mounted) return;
       final reply = await widget.assistant.ask(
         prompt,
-        tasks: tasks,
+        tasks: expandTasks(tasks, now),
         now: now,
         deviceTools: offered,
       );
@@ -787,30 +785,63 @@ class _PlannerHomeState extends State<_PlannerHome>
   }
 
   Future<void> _edit({PlannerTask? task, bool timed = false}) async {
-    if (_tasks == null || _asking || _saving || _listening || _startingVoice) {
+    final records = _tasks;
+    if (records == null || _asking || _saving || _listening || _startingVoice) {
       return;
+    }
+    var target = task;
+    final series = task == null ? null : taskSeries(records, task);
+    if (task != null && series != null) {
+      final wholeSeries = await showPlannerSheet<bool>(
+        context,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Edit repeating task', style: context.type.headlineSmall),
+            const SizedBox(height: 8),
+            Text(task.title),
+            const SizedBox(height: 12),
+            FilledButton.tonal(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('This occurrence'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Whole series'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || wholeSeries == null) return;
+      if (wholeSeries) target = series;
     }
     final result = await showPlannerSheet<TaskEditResult>(
       context,
-      TaskEditor(task: task, now: widget.clock(), timed: timed),
+      TaskEditor(task: target, now: widget.clock(), timed: timed),
     );
-    if (!mounted) return;
-    switch (result) {
-      case SaveTask(task: final edited):
-        await _write(
-          (tasks) => [
-            for (final current in tasks)
-              if (current.id == edited.id) edited else current,
-            if (task == null) edited,
-          ],
-        );
-      case DeleteTask():
-        await _write(
-          (tasks) => tasks.where((current) => current.id != task!.id).toList(),
-        );
-      case null:
-        break;
-    }
+    if (!mounted || result == null) return;
+    await _write((tasks) {
+      final updated = tasks.toList();
+      switch (result) {
+        case SaveTask(task: final edited):
+          if (target?.repeat != null && edited.repeat == null) {
+            detachTaskOccurrences(updated, target!);
+          }
+          saveTaskRecord(updated, edited);
+        case DeleteTask():
+          final removed = target!;
+          if (removed.occurrence != null) {
+            saveTaskRecord(updated, removed.copyWith(skipped: true));
+          } else {
+            updated.removeWhere(
+              (entry) =>
+                  entry.id == removed.id ||
+                  entry.occurrence?.seriesId == removed.id,
+            );
+          }
+      }
+      return updated;
+    });
   }
 
   Future<void> _reschedule(PlannerTask task) async {
@@ -838,12 +869,13 @@ class _PlannerHomeState extends State<_PlannerHome>
 
   void _updateTask(PlannerTask task, PlannerTask Function(PlannerTask) update) {
     unawaited(
-      _write(
-        (tasks) => [
-          for (final current in tasks)
-            if (current.id == task.id) update(current) else current,
-        ],
-      ),
+      _write((tasks) {
+        final current = findTaskRecord(tasks, task.id);
+        if (current == null) return tasks;
+        final updated = tasks.toList();
+        saveTaskRecord(updated, update(current));
+        return updated;
+      }),
     );
   }
 
@@ -890,13 +922,14 @@ class _PlannerHomeState extends State<_PlannerHome>
                     ),
             );
     }
+    final visible = expandTasks(tasks, _displayTime);
     return SingleChildScrollView(
       key: PageStorageKey(_tab),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
       child: _tab == 0
           ? BriefingScreen(
               now: _displayTime,
-              tasks: tasks,
+              tasks: visible,
               summary: _summary,
               loading: _briefingLoading,
               onRetry: _briefingFailed ? _retryBriefing : null,
@@ -907,7 +940,7 @@ class _PlannerHomeState extends State<_PlannerHome>
               onEdit: (task) => _edit(task: task),
             )
           : TasksScreen(
-              tasks: tasks,
+              tasks: visible,
               today: dayKey(_displayTime),
               filter: _taskFilter,
               onFilterChanged: (filter) => setState(() => _taskFilter = filter),

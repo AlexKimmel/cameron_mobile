@@ -96,6 +96,24 @@ class _TaskEditorState extends State<TaskEditor> {
       ? widget.now
       : DateTime.parse(widget.task!.day);
   late bool _high = widget.task?.priority == TaskPriority.high;
+  late RepeatFrequency? _frequency = widget.task?.repeat?.frequency;
+  late final _repeatEvery = TextEditingController(
+    text: '${widget.task?.repeat?.interval ?? 1}',
+  );
+  late final _weekdays = {...?widget.task?.repeat?.weekdays};
+  late DateTime? _repeatUntil = DateTime.tryParse(
+    widget.task?.repeat?.until ?? '',
+  );
+  bool _badEndDate = false;
+
+  bool get _canRepeat =>
+      widget.task?.occurrence == null && widget.task?.done != true;
+
+  String get _kind => widget.task?.repeat != null
+      ? 'series'
+      : widget.task?.occurrence != null
+      ? 'occurrence'
+      : 'task';
   late TimeOfDay? _time = switch (widget.task?.startMinute) {
     final int minute => TimeOfDay(hour: minute ~/ 60, minute: minute % 60),
     _ => widget.timed ? TimeOfDay.fromDateTime(widget.now) : null,
@@ -106,6 +124,7 @@ class _TaskEditorState extends State<TaskEditor> {
     _title.dispose();
     _notes.dispose();
     _duration.dispose();
+    _repeatEvery.dispose();
     super.dispose();
   }
 
@@ -122,24 +141,58 @@ class _TaskEditorState extends State<TaskEditor> {
     if (mounted && time != null) setState(() => _time = time);
   }
 
+  Future<void> _pickRepeatEnd() async {
+    final end = await pickTaskDate(
+      context,
+      now: widget.now,
+      initial: _repeatUntil ?? _day,
+    );
+    if (mounted && end != null) {
+      setState(() {
+        _repeatUntil = end;
+        _badEndDate = dayKey(end).compareTo(dayKey(_day)) < 0;
+      });
+    }
+  }
+
   void _save() {
-    if (!_form.currentState!.validate()) return;
-    final original = widget.task;
+    final valid = _form.currentState!.validate();
+    final day = dayKey(_day);
+    final frequency = _frequency;
+    final until = _repeatUntil == null ? null : dayKey(_repeatUntil!);
+    final badEnd =
+        frequency != null && until != null && until.compareTo(day) < 0;
+    setState(() => _badEndDate = badEnd);
+    if (!valid || badEnd) return;
+
+    final original =
+        widget.task ??
+        PlannerTask(
+          id: 'task-${DateTime.now().microsecondsSinceEpoch}',
+          title: '',
+          day: day,
+        );
     final time = _time;
     Navigator.pop(
       context,
       SaveTask(
-        PlannerTask(
-          id: original?.id ?? 'task-${DateTime.now().microsecondsSinceEpoch}',
+        original.copyWith(
           title: _title.text.trim(),
           notes: _notes.text.trim(),
-          duration: int.tryParse(_duration.text.trim()) ?? 0,
-          day: dayKey(_day),
+          day: day,
+          repeat: frequency == null
+              ? null
+              : RepeatRule(
+                  frequency: frequency,
+                  interval: int.parse(_repeatEvery.text.trim()),
+                  weekdays: frequency == RepeatFrequency.weekly
+                      ? _weekdays
+                      : const {},
+                  until: until,
+                ),
           startMinute: time == null ? null : time.hour * 60 + time.minute,
+          duration: int.tryParse(_duration.text.trim()) ?? 0,
           priority: _high ? TaskPriority.high : TaskPriority.normal,
-          completedOn: original?.completedOn,
-          origin: original?.origin ?? TaskOrigin.manual,
-          steps: original?.steps ?? const [],
         ),
       ),
     );
@@ -149,7 +202,7 @@ class _TaskEditorState extends State<TaskEditor> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete task?'),
+        title: Text('Delete $_kind?'),
         content: Text(widget.task!.title),
         actions: [
           TextButton(
@@ -176,7 +229,7 @@ class _TaskEditorState extends State<TaskEditor> {
       children: [
         Text(
           widget.task != null
-              ? 'Edit task'
+              ? 'Edit $_kind'
               : widget.timed
               ? 'New session'
               : 'New task',
@@ -236,6 +289,7 @@ class _TaskEditorState extends State<TaskEditor> {
                 : null;
           },
         ),
+        if (_canRepeat) ...[const SizedBox(height: 16), _repeatFields(context)],
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('High priority'),
@@ -248,20 +302,122 @@ class _TaskEditorState extends State<TaskEditor> {
           runSpacing: 8,
           children: [
             if (widget.task != null)
-              M3EButton.text(
-                onPressed: _delete,
-                child: const Text('Delete task'),
-              ),
+              M3EButton.text(onPressed: _delete, child: Text('Delete $_kind')),
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
-            M3EButton.filled(onPressed: _save, label: const Text('Save task')),
+            M3EButton.filled(onPressed: _save, label: Text('Save $_kind')),
           ],
         ),
       ],
     ),
   );
+
+  Widget _repeatFields(BuildContext context) {
+    final frequency = _frequency;
+    final labels = MaterialLocalizations.of(context);
+    const weekdays = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DropdownButtonFormField<String>(
+          initialValue: frequency?.name ?? 'none',
+          decoration: const InputDecoration(labelText: 'Repeat'),
+          items: const [
+            DropdownMenuItem(value: 'none', child: Text('Does not repeat')),
+            DropdownMenuItem(value: 'daily', child: Text('Daily')),
+            DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
+            DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
+          ],
+          onChanged: (value) => setState(() {
+            _frequency = value == null || value == 'none'
+                ? null
+                : RepeatFrequency.values.byName(value);
+            _badEndDate = false;
+          }),
+        ),
+        if (frequency != null) ...[
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _repeatEvery,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: switch (frequency) {
+                RepeatFrequency.daily => 'Days between repeats',
+                RepeatFrequency.weekly => 'Weeks between repeats',
+                RepeatFrequency.monthly => 'Months between repeats',
+              },
+            ),
+            validator: (value) {
+              final interval = int.tryParse(value?.trim() ?? '');
+              return interval == null || interval < 1 || interval > 366
+                  ? 'Enter a number from 1 to 366.'
+                  : null;
+            },
+          ),
+          if (frequency == RepeatFrequency.weekly)
+            Wrap(
+              spacing: 6,
+              children: [
+                for (var day = DateTime.monday; day <= DateTime.sunday; day++)
+                  FilterChip(
+                    label: Text(weekdays[day - 1].substring(0, 3)),
+                    tooltip: weekdays[day - 1],
+                    selected: _weekdays.isEmpty
+                        ? day == _day.weekday
+                        : _weekdays.contains(day),
+                    onSelected: (selected) => setState(() {
+                      if (_weekdays.isEmpty) _weekdays.add(_day.weekday);
+                      if (selected) {
+                        _weekdays.add(day);
+                      } else if (_weekdays.length > 1) {
+                        _weekdays.remove(day);
+                      }
+                    }),
+                  ),
+              ],
+            ),
+          Wrap(
+            spacing: 8,
+            children: [
+              TextButton.icon(
+                onPressed: _pickRepeatEnd,
+                icon: const Icon(Icons.event_outlined),
+                label: Text(
+                  _repeatUntil == null
+                      ? 'Set repeat end date'
+                      : 'Repeat until ${labels.formatShortDate(_repeatUntil!)}',
+                ),
+              ),
+              if (_repeatUntil != null)
+                IconButton(
+                  onPressed: () => setState(() {
+                    _repeatUntil = null;
+                    _badEndDate = false;
+                  }),
+                  tooltip: 'Clear repeat end date',
+                  icon: const Icon(Icons.close),
+                ),
+            ],
+          ),
+          if (_badEndDate)
+            Text(
+              'End date must be on or after the start date.',
+              style: TextStyle(color: context.palette.error),
+            ),
+        ],
+      ],
+    );
+  }
 }
 
 class BriefingFocusSheet extends StatefulWidget {

@@ -1,4 +1,6 @@
 import 'device_tools.dart';
+import 'recurrence.dart';
+import 'recurrence_rule.dart';
 import 'task.dart';
 
 class AssistantReply {
@@ -43,6 +45,7 @@ class PlannerTools {
   static const completeTask = 'complete_task';
   static const rescheduleTask = 'reschedule_task';
   static const addStep = 'add_subtask';
+  static const setRepeat = 'set_task_repeat';
 
   /// Applies planner changes as a single save. Device handoffs are returned
   /// as drafts for the UI to present to the user.
@@ -66,6 +69,8 @@ class PlannerTools {
       switch (call.name) {
         case createTask:
           final title = _text(args, 'title', 120);
+          final day = _date(args['day'] ?? today);
+          final repeat = _repeatRule(args, day);
           final duration = args['duration_minutes'] ?? 0;
           final priority = args['priority'] ?? 'normal';
           if (duration is! int || duration < 0 || duration > 1440) {
@@ -80,7 +85,8 @@ class PlannerTools {
             PlannerTask(
               id: 'ai-${now.microsecondsSinceEpoch}-${tasks.length}',
               title: title,
-              day: _date(args['day'] ?? today),
+              day: day,
+              repeat: repeat,
               notes: _text(args, 'notes', 1000, optional: true),
               priority: TaskPriority.values.byName(priority as String),
               startMinute: args['time'] == null ? null : _time(args['time']),
@@ -88,11 +94,15 @@ class PlannerTools {
               origin: TaskOrigin.assistant,
             ),
           );
-          activities.add('Added “$title”');
+          activities.add(
+            repeat == null ? 'Added “$title”' : 'Added repeating task “$title”',
+          );
           changed = true;
         case completeTask:
-          final index = _taskIndex(tasks, args);
-          final task = tasks[index];
+          final task = _task(tasks, args);
+          if (task.repeat != null) {
+            throw const FormatException('Choose one occurrence to complete.');
+          }
           if (!approvedTaskCompletion) {
             final tool = available[call.name];
             if (tool == null) {
@@ -102,30 +112,76 @@ class PlannerTools {
             }
             drafts.add(tool.draft({'id': task.id}));
           } else if (!task.done) {
-            tasks[index] = task.toggleDone(today);
+            saveTaskRecord(tasks, task.toggleDone(today));
             activities.add('Completed “${task.title}”');
             changed = true;
           } else {
             activities.add('“${task.title}” was already complete');
           }
         case rescheduleTask:
-          final index = _taskIndex(tasks, args);
-          final task = tasks[index];
+          final task = _task(tasks, args);
           final day = _date(args['day']);
           final time = args['time'];
-          tasks[index] = task.rescheduled(
-            day,
-            newStart: time == null ? null : _time(time),
-            newOrigin: TaskOrigin.tool,
+          final scope = args['scope'] ?? 'occurrence';
+          if (scope != 'occurrence' && scope != 'series') {
+            throw const FormatException(
+              'Choose one occurrence or the whole series.',
+            );
+          }
+          final target = scope == 'series'
+              ? taskSeries(tasks, task) ?? (task.repeat == null ? null : task)
+              : task;
+          if (target == null) {
+            throw const FormatException('That task does not repeat.');
+          }
+          if (target.repeat != null && scope != 'series') {
+            throw const FormatException(
+              'Choose one occurrence or the whole series.',
+            );
+          }
+          if (target.repeat?.until case final end?
+              when end.compareTo(day) < 0) {
+            throw const FormatException(
+              'The repeat end date comes before the new start.',
+            );
+          }
+          saveTaskRecord(
+            tasks,
+            target.rescheduled(
+              day,
+              newStart: time == null ? null : _time(time),
+              newOrigin: TaskOrigin.tool,
+            ),
           );
-          activities.add('Moved “${task.title}” to $day');
+          activities.add(
+            scope == 'series'
+                ? 'Moved the start of “${task.title}” to $day'
+                : 'Moved “${task.title}” to $day',
+          );
           changed = true;
         case addStep:
-          final index = _taskIndex(tasks, args);
-          final task = tasks[index];
+          final task = _task(tasks, args);
           final title = _text(args, 'title', 140);
-          tasks[index] = task.withSteps([...task.steps, TaskStep(title)]);
+          saveTaskRecord(
+            tasks,
+            task.withSteps([...task.steps, TaskStep(title)]),
+          );
           activities.add('Added a sub-step to “${task.title}”');
+          changed = true;
+        case setRepeat:
+          final task = _task(tasks, args);
+          final target = taskSeries(tasks, task) ?? task;
+          if (target.done) {
+            throw const FormatException(
+              'Reopen the task before setting a repeat schedule.',
+            );
+          }
+          final repeat = _repeatRule(args, target.day);
+          if (repeat == null) {
+            throw const FormatException('Choose a repeat schedule.');
+          }
+          saveTaskRecord(tasks, target.copyWith(repeat: repeat));
+          activities.add('Set the repeat schedule for “${target.title}”');
           changed = true;
         default:
           final tool = available[call.name];
@@ -146,15 +202,43 @@ class PlannerTools {
     );
   }
 
-  static int _taskIndex(List<PlannerTask> tasks, Map<String, Object?> args) {
+  static PlannerTask _task(List<PlannerTask> tasks, Map<String, Object?> args) {
     final id = _text(args, 'id', 100);
-    final index = tasks.indexWhere((task) => task.id == id);
-    if (index < 0) {
+    return findTaskRecord(tasks, id) ??
+        (throw const FormatException(
+          'The assistant could not identify that task.',
+        ));
+  }
+
+  static RepeatRule? _repeatRule(Map<String, Object?> args, String day) {
+    if (args['repeat_frequency'] == null) return null;
+    final frequency = RepeatFrequency.values
+        .where((item) => item.name == args['repeat_frequency'])
+        .firstOrNull;
+    final interval = args['repeat_interval'] ?? 1;
+    final weekdays = args['repeat_weekdays'] ?? const <int>[];
+    if (frequency == null ||
+        interval is! int ||
+        weekdays is! List ||
+        weekdays.any((item) => item is! int)) {
       throw const FormatException(
-        'The assistant could not identify that task.',
+        'Choose a frequency, whole interval, and optional weekdays.',
       );
     }
-    return index;
+    final until = args['repeat_until'] == null
+        ? null
+        : _date(args['repeat_until']);
+    if (until != null && until.compareTo(day) < 0) {
+      throw const FormatException(
+        'The repeat end date comes before the start.',
+      );
+    }
+    return RepeatRule(
+      frequency: frequency,
+      interval: interval,
+      weekdays: weekdays.cast<int>().toSet(),
+      until: until,
+    );
   }
 
   static String _text(

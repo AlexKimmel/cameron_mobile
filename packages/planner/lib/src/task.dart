@@ -1,3 +1,5 @@
+import 'recurrence_rule.dart';
+
 enum TaskOrigin { manual, assistant, tool }
 
 enum TaskPriority { normal, high }
@@ -26,6 +28,9 @@ class PlannerTask {
     this.duration = 0,
     this.completedOn,
     this.steps = const [],
+    this.repeat,
+    this.occurrence,
+    this.skipped = false,
   });
 
   final String id;
@@ -38,51 +43,64 @@ class PlannerTask {
   final int duration;
   final String? completedOn;
   final List<TaskStep> steps;
+  final RepeatRule? repeat;
+  final TaskOccurrence? occurrence;
+  final bool skipped;
 
   bool get done => completedOn != null;
 
-  PlannerTask toggleDone(String today) => PlannerTask(
-    id: id,
-    title: title,
-    day: day,
-    notes: notes,
-    priority: priority,
-    origin: origin,
-    startMinute: startMinute,
-    duration: duration,
-    completedOn: done ? null : today,
-    steps: steps,
+  static const _keep = Object();
+
+  PlannerTask copyWith({
+    String? id,
+    String? title,
+    String? day,
+    String? notes,
+    TaskPriority? priority,
+    TaskOrigin? origin,
+    Object? startMinute = _keep,
+    int? duration,
+    Object? completedOn = _keep,
+    List<TaskStep>? steps,
+    Object? repeat = _keep,
+    Object? occurrence = _keep,
+    bool? skipped,
+  }) => PlannerTask(
+    id: id ?? this.id,
+    title: title ?? this.title,
+    day: day ?? this.day,
+    notes: notes ?? this.notes,
+    priority: priority ?? this.priority,
+    origin: origin ?? this.origin,
+    startMinute: identical(startMinute, _keep)
+        ? this.startMinute
+        : startMinute as int?,
+    duration: duration ?? this.duration,
+    completedOn: identical(completedOn, _keep)
+        ? this.completedOn
+        : completedOn as String?,
+    steps: steps == null ? this.steps : List.unmodifiable(steps),
+    repeat: identical(repeat, _keep) ? this.repeat : repeat as RepeatRule?,
+    occurrence: identical(occurrence, _keep)
+        ? this.occurrence
+        : occurrence as TaskOccurrence?,
+    skipped: skipped ?? this.skipped,
   );
+
+  PlannerTask toggleDone(String today) =>
+      copyWith(completedOn: done ? null : today);
 
   PlannerTask rescheduled(
     String newDay, {
     int? newStart,
     TaskOrigin? newOrigin,
-  }) => PlannerTask(
-    id: id,
-    title: title,
+  }) => copyWith(
     day: newDay,
-    notes: notes,
-    priority: priority,
-    origin: newOrigin ?? origin,
+    origin: newOrigin,
     startMinute: newStart ?? startMinute,
-    duration: duration,
-    completedOn: completedOn,
-    steps: steps,
   );
 
-  PlannerTask withSteps(List<TaskStep> steps) => PlannerTask(
-    id: id,
-    title: title,
-    day: day,
-    notes: notes,
-    priority: priority,
-    origin: origin,
-    startMinute: startMinute,
-    duration: duration,
-    completedOn: completedOn,
-    steps: List.unmodifiable(steps),
-  );
+  PlannerTask withSteps(List<TaskStep> steps) => copyWith(steps: steps);
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -95,6 +113,9 @@ class PlannerTask {
     'duration': duration,
     'completedOn': completedOn,
     'steps': steps.map((step) => step.toJson()).toList(),
+    if (repeat != null) 'repeat': repeat!.toJson(),
+    if (occurrence != null) 'occurrence': occurrence!.toJson(),
+    if (skipped) 'skipped': true,
   };
 
   factory PlannerTask.fromJson(Map<String, dynamic> json) => PlannerTask(
@@ -111,6 +132,13 @@ class PlannerTask {
         .cast<Map<String, dynamic>>()
         .map(TaskStep.fromJson)
         .toList(),
+    repeat: json['repeat'] == null
+        ? null
+        : RepeatRule.fromJson(json['repeat'] as Map<String, dynamic>),
+    occurrence: json['occurrence'] == null
+        ? null
+        : TaskOccurrence.fromJson(json['occurrence'] as Map<String, dynamic>),
+    skipped: json['skipped'] as bool? ?? false,
   );
 }
 

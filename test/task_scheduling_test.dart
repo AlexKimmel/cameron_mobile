@@ -58,6 +58,74 @@ void main() {
     expect(moved.origin, TaskOrigin.manual);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets(
+    'Creates a repeating task and edits one occurrence or the series',
+    (tester) async {
+      final store = MemoryTaskStore();
+      final now = DateTime(2026, 11, 15, 9);
+      await tester.pumpWidget(
+        PlannerApp(
+          store: store,
+          assistant: _OffAssistant(),
+          initialTab: 1,
+          clock: () => now,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Add task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).first, 'Pay rent');
+      final frequency = find.text('Does not repeat');
+      await tester.ensureVisible(frequency);
+      await tester.tap(frequency);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Monthly').last);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Save task'));
+      await tester.tap(find.text('Save task'));
+      await tester.pumpAndSettle();
+      expect(
+        (await store.read()).single.repeat?.frequency,
+        RepeatFrequency.monthly,
+      );
+
+      final first = find.text('Pay rent').first;
+      await tester.ensureVisible(first);
+      await tester.tap(first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('This occurrence'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextFormField).first,
+        'Pay partial rent',
+      );
+      await tester.ensureVisible(find.text('Save occurrence'));
+      await tester.tap(find.text('Save occurrence'));
+      await tester.pumpAndSettle();
+      expect(find.text('Pay partial rent'), findsOneWidget);
+
+      await tester.tap(find.text('Pay partial rent'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Whole series'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextFormField).first,
+        'Send rent payment',
+      );
+      await tester.ensureVisible(find.text('Save series'));
+      await tester.tap(find.text('Save series'));
+      await tester.pumpAndSettle();
+
+      final tasks = expandTasks(await store.read(), now);
+      expect(tasks.first.title, 'Pay partial rent');
+      expect(
+        tasks.skip(1).every((task) => task.title == 'Send rent payment'),
+        isTrue,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 }
 
 class _OffAssistant implements PlannerAssistant {
