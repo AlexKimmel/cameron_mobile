@@ -17,6 +17,8 @@ Choose **Repeat** when editing an open task to set a daily, weekly, or monthly p
 
 Cameron prepares read-only briefings at 07:00, 12:00, and 18:00 in the device’s local time. Android WorkManager and iOS Background Tasks run them when the OS allows. Opening the briefing catches up the current time slot if the background run was delayed. Briefings use the selected model and refresh when relevant tasks change. Open **Briefing focus** to tell Cameron what to emphasize, including unfinished priorities or completed work.
 
+On Android and iOS, enable **Scheduled tasks** or **Daily briefings** in the Notifications section under **Tool settings**. Timed tasks use their start time and date-only tasks use 09:00 local time. Cameron schedules the next 48 task alerts and refreshes the queue when tasks change or the app resumes. Background delivery follows device notification and battery settings.
+
 ## Develop with Widget Preview
 
 From the workspace root, use your IDE's Flutter Widget Preview panel or run:

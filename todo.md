@@ -8,7 +8,7 @@
 - [x] Add clear loading, error, and retry states for model downloads, inference, dictation, and tool handoffs.
 - [x] Improve accessibility with larger tap targets, useful screen reader labels, and reduced-motion support across animated controls.
 - [x] Add recurring tasks with flexible schedules and the option to edit one occurrence or the whole series. Here create tool calls for the local llm.
-- [ ] Add notification support. Such that when tasks have exact dates or a new breafing is available notifications are send. 
+- [x] Add notification support. Such that when tasks have exact dates or a new breafing is available notifications are send.
 - [ ] Add optional local reminders for tasks and upcoming sessions, with snooze and quiet hours.
 - [ ] Show scheduling conflicts and suggest available time slots before moving or adding a session.
 - [ ] Add task search across titles and notes, including completed tasks.

@@ -9,6 +9,9 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text_platform_interface/speech_to_text_platform_interface.dart';
 
 class PreferencesTaskStore implements TaskStore {
+  PreferencesTaskStore({this.onSaved});
+
+  final void Function()? onSaved;
   static const _key = 'planner.tasks.v1';
   final _prefs = SharedPreferencesAsync();
 
@@ -23,10 +26,13 @@ class PreferencesTaskStore implements TaskStore {
   }
 
   @override
-  Future<void> save(List<PlannerTask> tasks) => _prefs.setString(
-    _key,
-    jsonEncode(tasks.map((task) => task.toJson()).toList()),
-  );
+  Future<void> save(List<PlannerTask> tasks) async {
+    await _prefs.setString(
+      _key,
+      jsonEncode(tasks.map((task) => task.toJson()).toList()),
+    );
+    onSaved?.call();
+  }
 }
 
 class PreferencesDeviceToolStore implements DeviceToolStore {
@@ -145,7 +151,7 @@ class MobileCalendar implements DeviceCalendar {
       await _channel.invokeMethod<bool>('requestAccess') ?? false;
 
   @override
-  Future<void> openSettings() => _channel.invokeMethod<void>('openSettings');
+  Future<void> openSettings() => openMobileAppSettings();
 
   @override
   Future<List<CalendarEvent>> eventsOn(DateTime day) async {
@@ -174,3 +180,6 @@ class MobileCalendar implements DeviceCalendar {
     ];
   }
 }
+
+Future<void> openMobileAppSettings() =>
+    const MethodChannel('cameron/calendar').invokeMethod<void>('openSettings');

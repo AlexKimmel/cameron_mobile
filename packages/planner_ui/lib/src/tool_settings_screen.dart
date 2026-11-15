@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:planner/planner.dart';
 
 import 'design.dart';
+import 'notification_settings.dart';
 
 class ToolSettingsScreen extends StatefulWidget {
   const ToolSettingsScreen({
@@ -10,12 +11,14 @@ class ToolSettingsScreen extends StatefulWidget {
     required this.store,
     required this.available,
     this.calendar,
+    this.notifications,
   });
 
   final List<DeviceTool> tools;
   final DeviceToolStore? store;
   final bool Function(DeviceTool) available;
   final DeviceCalendar? calendar;
+  final PlannerNotificationSettings? notifications;
 
   @override
   State<ToolSettingsScreen> createState() => _ToolSettingsScreenState();
@@ -234,6 +237,10 @@ class _ToolSettingsScreenState extends State<ToolSettingsScreen>
                       ],
                     ),
                   ),
+                ],
+                if (widget.notifications case final notifications?) ...[
+                  const SizedBox(height: 16),
+                  NotificationSettingsPanel(settings: notifications),
                 ],
               ],
             ),

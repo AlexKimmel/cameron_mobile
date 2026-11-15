@@ -15,6 +15,7 @@ workspace:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_local_notifications: ^22.0.0
   material_ui: ^1.11.0
   path_provider: ^2.1.6
   planner:
@@ -23,6 +24,7 @@ dependencies:
   shared_preferences: ^2.5.6
   speech_to_text: 7.6.0-beta.4
   speech_to_text_platform_interface: ^2.5.0
+  timezone: ^0.11.2
   workmanager: ^0.10.0
 
 dev_dependencies:

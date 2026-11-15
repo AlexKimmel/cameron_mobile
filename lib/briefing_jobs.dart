@@ -8,6 +8,7 @@ import 'package:planner_assistant/planner_assistant.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
+import 'planner_notifications.dart';
 import 'platform_services.dart';
 
 const _taskName = 'com.example.cameronMobile.briefing';
@@ -20,6 +21,9 @@ BotPsyAssistant createAssistant({bool background = false}) => BotPsyAssistant(
 );
 
 class PreferencesBriefingStore implements BriefingStore {
+  PreferencesBriefingStore({this.notifications});
+
+  final LocalPlannerNotifications? notifications;
   final _prefs = SharedPreferencesAsync();
 
   static const _focus = 'planner.briefing.focus';
@@ -37,11 +41,17 @@ class PreferencesBriefingStore implements BriefingStore {
   }
 
   @override
-  Future<void> save(BriefingSlot slot, String input, String summary) =>
-      _prefs.setString(
-        _key(slot),
-        jsonEncode({'slot': slot.id, 'input': input, 'summary': summary}),
-      );
+  Future<void> save(BriefingSlot slot, String input, String summary) async {
+    await _prefs.setString(
+      _key(slot),
+      jsonEncode({'slot': slot.id, 'input': input, 'summary': summary}),
+    );
+    try {
+      await notifications?.briefingSaved(slot);
+    } catch (error) {
+      debugPrint('Could not post briefing notification: $error');
+    }
+  }
 
   @override
   Future<String> readFocus() async => await _prefs.getString(_focus) ?? '';
@@ -92,9 +102,13 @@ void briefingDispatcher() {
       if (!await assistant.isInstalled()) return true;
       final now = DateTime.now();
       await _scheduleNext(now);
-      final tasks = await PreferencesTaskStore().read();
+      final store = PreferencesTaskStore();
+      final notifications = LocalPlannerNotifications.supported
+          ? LocalPlannerNotifications(store)
+          : null;
+      final tasks = await store.read();
       await BriefingService(
-        store: PreferencesBriefingStore(),
+        store: PreferencesBriefingStore(notifications: notifications),
         assistant: assistant,
       ).refresh(now, tasks);
       return true;

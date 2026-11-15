@@ -2,6 +2,7 @@ import EventKit
 import Flutter
 import MessageUI
 import UIKit
+import UserNotifications
 import workmanager_apple
 
 @main
@@ -14,6 +15,7 @@ import workmanager_apple
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    UNUserNotificationCenter.current().delegate = self
     WorkmanagerPlugin.registerBGProcessingTask(withIdentifier: "com.example.cameronMobile.briefing")
     WorkmanagerPlugin.setPluginRegistrantCallback { registry in
       GeneratedPluginRegistrant.register(with: registry)

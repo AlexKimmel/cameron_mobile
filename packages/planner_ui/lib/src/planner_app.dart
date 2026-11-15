@@ -22,6 +22,7 @@ class PlannerApp extends StatelessWidget {
     this.toolStore,
     this.openDeviceTool,
     this.calendar,
+    this.notificationSettings,
     this.deviceTools = communicationTools,
     this.dictation,
     this.briefingStore,
@@ -39,6 +40,7 @@ class PlannerApp extends StatelessWidget {
   final Future<bool> Function(DeviceToolDraft)? openDeviceTool;
   final List<DeviceTool> deviceTools;
   final DeviceCalendar? calendar;
+  final PlannerNotificationSettings? notificationSettings;
   final PlannerDictation? dictation;
   final BriefingStore? briefingStore;
   final Future<void> Function()? scheduleBriefings;
@@ -69,6 +71,7 @@ class PlannerApp extends StatelessWidget {
         toolStore: toolStore,
         openDeviceTool: openDeviceTool,
         calendar: calendar,
+        notificationSettings: notificationSettings,
         deviceTools: deviceTools,
         dictation: dictation,
         briefingStore: briefingStore,
@@ -90,6 +93,7 @@ class _PlannerHome extends StatefulWidget {
     required this.toolStore,
     required this.openDeviceTool,
     required this.calendar,
+    required this.notificationSettings,
     required this.deviceTools,
     required this.dictation,
     required this.briefingStore,
@@ -107,6 +111,7 @@ class _PlannerHome extends StatefulWidget {
   final Future<bool> Function(DeviceToolDraft)? openDeviceTool;
   final List<DeviceTool> deviceTools;
   final DeviceCalendar? calendar;
+  final PlannerNotificationSettings? notificationSettings;
   final PlannerDictation? dictation;
   final BriefingStore? briefingStore;
   final Future<void> Function()? scheduleBriefings;
@@ -578,6 +583,7 @@ class _PlannerHomeState extends State<_PlannerHome>
           store: widget.toolStore,
           available: _toolAvailable,
           calendar: widget.calendar,
+          notifications: widget.notificationSettings,
         ),
       ),
     );
