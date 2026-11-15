@@ -3,7 +3,7 @@
 - [x] Fix layout and interaction bugs on the Tasks & Tools page, including task filtering, editing, and completion states.
 - [x] Make the daily briefing more reactive to changes in tasks and time of day, and let users provide input to shape the briefing.
 - [x] Improve voice input so the animated listening bubble expands over the tab selectors while recording.
-- [ ] Show the recognized spoken text for review after dictation, with clear edit, submit, and retry actions.
+- [x] Show the recognized spoken text for review after dictation, with clear edit, submit, and retry actions.
 - [ ] Improve task list organization with stronger date grouping, overdue indicators, and easier rescheduling.
 - [ ] Add clear loading, error, and retry states for model downloads, inference, dictation, and tool handoffs.
 - [ ] Improve accessibility with larger tap targets, useful screen reader labels, and reduced-motion support across animated controls.

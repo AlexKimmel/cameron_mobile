@@ -140,6 +140,7 @@ class _PlannerHomeState extends State<_PlannerHome>
   bool _startingVoice = false;
   bool _listening = false;
   bool _endingVoice = false;
+  bool _reviewingVoice = false;
   Timer? _finishVoiceTimer;
   bool _readFailed = false;
   bool _checking = true;
@@ -246,7 +247,8 @@ class _PlannerHomeState extends State<_PlannerHome>
         _settledBriefing == _briefingRevision ||
         _asking ||
         _startingVoice ||
-        _listening) {
+        _listening ||
+        _reviewingVoice) {
       return;
     }
     final revision = _briefingRevision;
@@ -464,6 +466,7 @@ class _PlannerHomeState extends State<_PlannerHome>
     if (dictation == null ||
         _startingVoice ||
         _endingVoice ||
+        _reviewingVoice ||
         _checking ||
         _installing ||
         _asking ||
@@ -494,14 +497,11 @@ class _PlannerHomeState extends State<_PlannerHome>
         _listening = false;
         _endingVoice = false;
       });
-      if (error != null) {
-        _message(error);
-      } else if (transcript.trim().isNotEmpty) {
-        unawaited(_ask(transcript.trim()));
+      if (transcript.trim().isNotEmpty) {
+        unawaited(_reviewTranscript(transcript.trim()));
         return;
-      } else {
-        _message('No speech detected.');
       }
+      _message(error ?? 'No speech detected.');
       unawaited(_refreshBriefing());
     }
 
@@ -526,6 +526,24 @@ class _PlannerHomeState extends State<_PlannerHome>
       }
     } catch (_) {
       done('Could not start dictation.');
+    }
+  }
+
+  Future<void> _reviewTranscript(String transcript) async {
+    setState(() => _reviewingVoice = true);
+    final result = await showPlannerSheet<PromptResult>(
+      context,
+      PromptSheet(transcript: transcript),
+    );
+    if (!mounted) return;
+    setState(() => _reviewingVoice = false);
+    switch (result) {
+      case SubmitPrompt(:final text):
+        await _ask(text);
+      case RetryDictation():
+        await _voice();
+      case null:
+        await _refreshBriefing();
     }
   }
 
@@ -641,8 +659,12 @@ class _PlannerHomeState extends State<_PlannerHome>
       await _showDownload();
       return;
     }
-    final prompt = await showPlannerSheet<String>(context, const PromptSheet());
-    if (mounted && prompt != null) await _ask(prompt);
+    final result = await showPlannerSheet<PromptResult>(
+      context,
+      const PromptSheet(),
+    );
+    if (!mounted) return;
+    if (result case SubmitPrompt(:final text)) await _ask(text);
   }
 
   Future<void> _ask(String prompt) async {

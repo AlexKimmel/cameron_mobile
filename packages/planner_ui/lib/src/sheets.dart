@@ -297,8 +297,24 @@ class _BriefingFocusSheetState extends State<BriefingFocusSheet> {
   );
 }
 
+sealed class PromptResult {
+  const PromptResult();
+}
+
+class SubmitPrompt extends PromptResult {
+  const SubmitPrompt(this.text);
+
+  final String text;
+}
+
+class RetryDictation extends PromptResult {
+  const RetryDictation();
+}
+
 class PromptSheet extends StatefulWidget {
-  const PromptSheet({super.key});
+  const PromptSheet({super.key, this.transcript});
+
+  final String? transcript;
 
   @override
   State<PromptSheet> createState() => _PromptSheetState();
@@ -306,7 +322,7 @@ class PromptSheet extends StatefulWidget {
 
 class _PromptSheetState extends State<PromptSheet> {
   final _form = GlobalKey<FormState>();
-  final _prompt = TextEditingController();
+  late final _prompt = TextEditingController(text: widget.transcript);
 
   @override
   void dispose() {
@@ -315,32 +331,59 @@ class _PromptSheetState extends State<PromptSheet> {
   }
 
   @override
-  Widget build(BuildContext context) => Form(
-    key: _form,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        TextFormField(
-          controller: _prompt,
-          autofocus: true,
-          minLines: 2,
-          maxLines: 5,
-          decoration: const InputDecoration(labelText: 'Request'),
-          validator: (value) =>
-              value?.trim().isNotEmpty == true ? null : 'Enter a request.',
-        ),
-        const SizedBox(height: 12),
-        M3EButton.filled(
-          onPressed: () {
-            if (_form.currentState!.validate()) {
-              Navigator.pop(context, _prompt.text.trim());
-            }
-          },
-          label: const Text('Send'),
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final reviewing = widget.transcript != null;
+    return Form(
+      key: _form,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (reviewing) ...[
+            Text('Review transcript', style: context.type.headlineSmall),
+            const SizedBox(height: 12),
+          ],
+          TextFormField(
+            controller: _prompt,
+            autofocus: !reviewing,
+            minLines: 2,
+            maxLines: 5,
+            decoration: InputDecoration(
+              labelText: reviewing ? 'Transcript' : 'Request',
+            ),
+            validator: (value) =>
+                value?.trim().isNotEmpty == true ? null : 'Enter a request.',
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (reviewing) ...[
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                OutlinedButton(
+                  onPressed: () =>
+                      Navigator.pop(context, const RetryDictation()),
+                  child: const Text('Record again'),
+                ),
+              ],
+              M3EButton.filled(
+                onPressed: () {
+                  if (_form.currentState!.validate()) {
+                    Navigator.pop(context, SubmitPrompt(_prompt.text.trim()));
+                  }
+                },
+                label: Text(reviewing ? 'Submit' : 'Send'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class DeviceToolReviewSheet extends StatefulWidget {
