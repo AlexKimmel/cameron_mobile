@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:planner/planner.dart';
 
 import 'design.dart';
@@ -54,13 +55,6 @@ class TasksScreen extends StatelessWidget {
       );
 
   Widget _buildTasks(BuildContext context, String query) {
-    final filterMotion = context.reduceMotion
-        ? ChipAnimationStyle(
-            selectAnimation: AnimationStyle.noAnimation,
-            avatarDrawerAnimation: AnimationStyle.noAnimation,
-            enableAnimation: AnimationStyle.noAnimation,
-          )
-        : null;
     final normalized = query.trim().toLowerCase();
     final terms = normalized.isEmpty
         ? const <String>[]
@@ -123,18 +117,28 @@ class TasksScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          children: [
+        M3EButtonGroup(
+          semanticLabel: 'Task filters',
+          size: M3EButtonSize.md,
+          selectedIndex: filter.index,
+          selectionRequired: true,
+          onSelectedIndexChanged: (index) {
+            if (index != null) onFilterChanged(TaskFilter.values[index]);
+          },
+          decoration: M3EButtonDecoration(
+            minimumSize: const Size(0, plannerTapTarget),
+            tapTargetSize: MaterialTapTargetSize.padded,
+            animationDuration: context.reduceMotion ? Duration.zero : null,
+            textStyle: context.type.labelMedium,
+          ),
+          actions: [
             for (final option in TaskFilter.values)
-              ChoiceChip(
-                avatar: Icon(option.icon, size: 16),
-                label: Text(option.label),
-                selected: filter == option,
-                showCheckmark: false,
-                chipAnimationStyle: filterMotion,
-                onSelected: (_) => onFilterChanged(option),
+              M3EButtonGroupAction(
+                icon: Icon(option.icon, size: 18),
+                label: filter == option ? Text(option.label) : null,
+                semanticLabel: option.label,
+                tooltip: filter == option ? null : option.label,
+                width: 88,
               ),
           ],
         ),

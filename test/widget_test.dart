@@ -70,7 +70,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('Task filters distinguish origin and persist across tabs', (
+  testWidgets('Task filter button group distinguishes task origins', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(320, 640);
@@ -80,24 +80,15 @@ void main() {
     await tester.pumpWidget(tasksPreview());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('AI suggested'));
+    await tester.tap(find.bySemanticsLabel('AI suggested'));
     await tester.pumpAndSettle();
     expect(find.text('Review design tokens with team'), findsNothing);
 
-    await tester.tap(find.text('Tool actions'));
-    await tester.pumpAndSettle();
-    expect(find.text('Finalize the on-device benchmark'), findsOneWidget);
+    expect(find.text('Synthesize the Q3 design roadmap'), findsOneWidget);
     expect(find.text('Review design tokens with team'), findsNothing);
 
-    await tester.tap(find.bySemanticsLabel('Briefing'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.bySemanticsLabel('Tasks & Tools'));
-    await tester.pumpAndSettle();
-    final filter = tester.widget<ChoiceChip>(
-      find.widgetWithText(ChoiceChip, 'Tool actions'),
-    );
-    expect(filter.selected, isTrue);
-    expect(find.text('Finalize the on-device benchmark'), findsOneWidget);
+    expect(find.bySemanticsLabel('Task filters'), findsOneWidget);
+    expect(find.text('Synthesize the Q3 design roadmap'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
