@@ -20,6 +20,7 @@ bool get _isIos => defaultTargetPlatform == TargetPlatform.iOS;
 BotPsyAssistant createAssistant({bool background = false}) => BotPsyAssistant(
   background: background,
   modelDirectory: () async => (await getApplicationSupportDirectory()).path,
+  promptStore: PreferencesAssistantPromptStore(),
 );
 
 class PreferencesBriefingStore implements BriefingStore {
@@ -162,4 +163,14 @@ void briefingDispatcher() {
       await assistant.dispose();
     }
   });
+}
+
+class PreferencesAssistantPromptStore implements AssistantPromptStore {
+  final _prefs = SharedPreferencesAsync();
+  @override
+  Future<String?> read() =>
+      _prefs.getString(PlannerPreferenceKeys.assistantPrompt);
+  @override
+  Future<void> save(String value) =>
+      _prefs.setString(PlannerPreferenceKeys.assistantPrompt, value.trim());
 }

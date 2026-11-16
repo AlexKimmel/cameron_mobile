@@ -30,6 +30,7 @@ void main() {
       onboarding: PreferencesOnboarding(),
       notificationSettings: notifications,
       assistant: assistant,
+      promptStore: PreferencesAssistantPromptStore(),
       modelLibrary: assistant.models,
       briefingStore: PreferencesBriefingStore(notifications: notifications),
       healthBriefing: LocalHealthBriefing.supported

@@ -4,6 +4,7 @@ class BotPsyAssistant implements PlannerAssistant {
   BotPsyAssistant({
     required Future<String> Function() modelDirectory,
     bool background = false,
+    AssistantPromptStore? promptStore,
   });
 
   AssistantModelLibrary? get models => null;

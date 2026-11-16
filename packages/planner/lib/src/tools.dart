@@ -18,6 +18,11 @@ class PlannerToolCall {
   final Map<String, Object?> arguments;
 }
 
+abstract interface class AssistantPromptStore {
+  Future<String?> read();
+  Future<void> save(String value);
+}
+
 abstract interface class PlannerAssistant {
   bool get supported;
   Future<bool> isInstalled();

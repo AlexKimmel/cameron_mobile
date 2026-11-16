@@ -9,6 +9,7 @@ import 'task.dart';
 abstract final class PlannerPreferenceKeys {
   static const toolPrefix = 'planner.tools.v1.';
   static const briefingFocus = 'planner.briefing.focus';
+  static const assistantPrompt = 'planner.assistant.prompt';
   static const briefingTimes = 'planner.briefing.times';
   static const quietHours = 'planner.notifications.quiet';
 
@@ -17,6 +18,7 @@ abstract final class PlannerPreferenceKeys {
 
   static bool includes(String key) =>
       key == briefingFocus ||
+      key == assistantPrompt ||
       key == briefingTimes ||
       key == quietHours ||
       RegExp(r'^planner\.tools\.v1\.[a-z_][a-z0-9_]*$').hasMatch(key) ||
@@ -24,7 +26,7 @@ abstract final class PlannerPreferenceKeys {
 
   static bool accepts(String key, Object? value) {
     if (!includes(key)) return false;
-    if (key == briefingFocus) return value is String;
+    if (key == briefingFocus || key == assistantPrompt) return value is String;
     if (key == briefingTimes) {
       if (value is! String) return false;
       final data = jsonDecode(value);

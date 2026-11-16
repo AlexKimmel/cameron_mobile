@@ -21,6 +21,7 @@ class PlannerApp extends StatelessWidget {
     required this.store,
     required this.assistant,
     this.modelLibrary,
+    this.promptStore,
     this.toolStore,
     this.openDeviceTool,
     this.calendar,
@@ -41,6 +42,7 @@ class PlannerApp extends StatelessWidget {
   final TaskStore store;
   final PlannerAssistant assistant;
   final AssistantModelLibrary? modelLibrary;
+  final AssistantPromptStore? promptStore;
   final DeviceToolStore? toolStore;
   final Future<bool> Function(DeviceToolDraft)? openDeviceTool;
   final List<DeviceTool> deviceTools;
@@ -76,6 +78,7 @@ class PlannerApp extends StatelessWidget {
         store: store,
         assistant: assistant,
         modelLibrary: modelLibrary,
+        promptStore: promptStore,
         toolStore: toolStore,
         openDeviceTool: openDeviceTool,
         calendar: calendar,
@@ -101,6 +104,7 @@ class _PlannerHome extends StatefulWidget {
     required this.store,
     required this.assistant,
     required this.modelLibrary,
+    required this.promptStore,
     required this.toolStore,
     required this.openDeviceTool,
     required this.calendar,
@@ -121,6 +125,7 @@ class _PlannerHome extends StatefulWidget {
   final TaskStore store;
   final PlannerAssistant assistant;
   final AssistantModelLibrary? modelLibrary;
+  final AssistantPromptStore? promptStore;
   final DeviceToolStore? toolStore;
   final Future<bool> Function(DeviceToolDraft)? openDeviceTool;
   final List<DeviceTool> deviceTools;
@@ -682,6 +687,7 @@ class _PlannerHomeState extends State<_PlannerHome>
       MaterialPageRoute(
         builder: (_) => ToolSettingsScreen(
           tools: _toolCatalog,
+          promptStore: widget.promptStore,
           store: widget.toolStore,
           available: _toolAvailable,
           calendar: widget.calendar,

@@ -11,6 +11,7 @@ class ToolSettingsScreen extends StatefulWidget {
   const ToolSettingsScreen({
     super.key,
     required this.tools,
+    this.promptStore,
     required this.store,
     required this.available,
     this.calendar,
@@ -24,6 +25,7 @@ class ToolSettingsScreen extends StatefulWidget {
   });
 
   final List<DeviceTool> tools;
+  final AssistantPromptStore? promptStore;
   final DeviceToolStore? store;
   final bool Function(DeviceTool) available;
   final DeviceCalendar? calendar;
@@ -43,6 +45,8 @@ class _ToolSettingsScreenState extends State<ToolSettingsScreen>
     with WidgetsBindingObserver {
   Set<String>? _enabled;
   bool _saving = false;
+  final _prompt = TextEditingController();
+  bool _savingPrompt = false;
   bool _loadFailed = false;
   bool? _calendarAccess;
   bool _requestingAccess = false;
@@ -52,18 +56,58 @@ class _ToolSettingsScreenState extends State<ToolSettingsScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _read();
+    _readPrompt();
     _readCalendarAccess();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _prompt.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) _readCalendarAccess();
+  }
+
+  Future<void> _readPrompt() async {
+    try {
+      final value = await widget.promptStore?.read();
+      if (mounted) setState(() => _prompt.text = value ?? '');
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not load assistant instructions.'),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _savePrompt() async {
+    if (_savingPrompt || widget.promptStore == null) return;
+    setState(() => _savingPrompt = true);
+    try {
+      await widget.promptStore!.save(_prompt.text);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Assistant instructions saved.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not save assistant instructions.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingPrompt = false);
+    }
   }
 
   Future<void> _readCalendarAccess() async {
@@ -174,6 +218,42 @@ class _ToolSettingsScreenState extends State<ToolSettingsScreen>
                   'Choose which tools the assistant can use. You review each device action or task completion before it runs.',
                   style: context.type.bodyMedium,
                 ),
+                if (widget.promptStore != null) ...[
+                  const SizedBox(height: 16),
+                  Panel(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Assistant instructions',
+                          style: context.type.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Add your planning preferences. The core task and tool rules always apply.',
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _prompt,
+                          maxLines: 4,
+                          maxLength: 2000,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            hintText:
+                                'For example: keep tasks small and specific',
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: FilledButton(
+                            onPressed: _savingPrompt ? null : _savePrompt,
+                            child: const Text('Save instructions'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 if (_loadFailed)
                   ListTile(
