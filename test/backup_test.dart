@@ -27,6 +27,9 @@ void main() {
       tasks: tasks,
       preferences: {
         PlannerPreferenceKeys.briefingFocus: 'Deadlines',
+        PlannerPreferenceKeys.briefingTimes: jsonEncode(
+          BriefingSchedule(morning: 480, midday: 750, evening: 1110).toJson(),
+        ),
         '${PlannerPreferenceKeys.toolPrefix}draft_email': true,
         PlannerPreferenceKeys.quietHours: '[1320,420]',
       },

@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:planner/planner.dart';
 
 import 'backup_settings.dart';
+import 'briefing_schedule_settings.dart';
 import 'design.dart';
 import 'notification_settings.dart';
 
@@ -12,6 +13,8 @@ class ToolSettingsScreen extends StatefulWidget {
     required this.store,
     required this.available,
     this.calendar,
+    this.briefingSchedule,
+    required this.saveBriefingSchedule,
     this.notifications,
     this.backup,
     required this.restoreBackup,
@@ -21,6 +24,8 @@ class ToolSettingsScreen extends StatefulWidget {
   final DeviceToolStore? store;
   final bool Function(DeviceTool) available;
   final DeviceCalendar? calendar;
+  final BriefingSchedule? briefingSchedule;
+  final Future<void> Function(BriefingSchedule) saveBriefingSchedule;
   final PlannerNotificationSettings? notifications;
   final PlannerBackup? backup;
   final Future<void> Function(PlannerBackupSnapshot) restoreBackup;
@@ -241,6 +246,13 @@ class _ToolSettingsScreenState extends State<ToolSettingsScreen>
                         ),
                       ],
                     ),
+                  ),
+                ],
+                if (widget.briefingSchedule case final schedule?) ...[
+                  const SizedBox(height: 16),
+                  BriefingScheduleSettings(
+                    initial: schedule,
+                    onSave: widget.saveBriefingSchedule,
                   ),
                 ],
                 if (widget.notifications case final notifications?) ...[

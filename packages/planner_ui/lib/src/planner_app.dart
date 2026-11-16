@@ -144,7 +144,8 @@ class _PlannerHomeState extends State<_PlannerHome>
   late List<String> _activities = widget.initialActivities;
   late String? _summary = widget.initialSummary;
   late DateTime _displayTime = widget.clock();
-  late String? _summarySlot = BriefingSlot.current(_displayTime)?.id;
+  BriefingSchedule _briefingSchedule = BriefingSchedule.defaults;
+  late String? _summarySlot = _currentBriefing(_displayTime)?.id;
   Future<void>? _briefingRun;
   int _briefingRevision = 0;
   int? _settledBriefing;
@@ -192,18 +193,21 @@ class _PlannerHomeState extends State<_PlannerHome>
     super.dispose();
   }
 
+  BriefingSlot? _currentBriefing(DateTime now) =>
+      BriefingSlot.current(now, schedule: _briefingSchedule);
+
   void _scheduleClockRefresh() {
     _clockRefresh?.cancel();
     final now = widget.clock();
     final midnight = DateTime(now.year, now.month, now.day + 1);
-    final next = BriefingSlot.next(now).start;
+    final next = BriefingSlot.next(now, schedule: _briefingSchedule).start;
     final boundary = next.isBefore(midnight) ? next : midnight;
     _clockRefresh = Timer(boundary.difference(now), _refreshClock);
   }
 
   void _refreshClock() {
     final now = widget.clock();
-    final slot = BriefingSlot.current(now)?.id;
+    final slot = _currentBriefing(now)?.id;
     setState(() {
       if (dayKey(_displayTime) != dayKey(now)) _activities = const [];
       if (_summarySlot != slot ||
@@ -257,7 +261,7 @@ class _PlannerHomeState extends State<_PlannerHome>
     final store = widget.briefingStore;
     final tasks = _tasks;
     final now = widget.clock();
-    final slot = BriefingSlot.current(now);
+    final slot = _currentBriefing(now);
     if (store == null ||
         tasks == null ||
         slot == null ||
@@ -274,7 +278,14 @@ class _PlannerHomeState extends State<_PlannerHome>
       return;
     }
     final revision = _briefingRevision;
-    final run = _loadBriefing(store, now, slot, tasks, revision);
+    final run = _loadBriefing(
+      store,
+      now,
+      slot,
+      tasks,
+      revision,
+      _briefingSchedule,
+    );
     _briefingRun = run;
     await run;
     _briefingRun = null;
@@ -289,6 +300,7 @@ class _PlannerHomeState extends State<_PlannerHome>
     BriefingSlot slot,
     List<PlannerTask> tasks,
     int revision,
+    BriefingSchedule schedule,
   ) async {
     setState(() {
       _briefingLoading = true;
@@ -296,12 +308,12 @@ class _PlannerHomeState extends State<_PlannerHome>
     });
     bool stillCurrent() =>
         _briefingRevision == revision &&
-        BriefingSlot.current(widget.clock())?.id == slot.id;
+        _currentBriefing(widget.clock())?.id == slot.id;
     try {
       final text = await BriefingService(
         store: store,
         assistant: widget.assistant,
-      ).refresh(now, tasks);
+      ).refresh(now, tasks, schedule: schedule);
       if (mounted && stillCurrent()) {
         setState(() {
           _summary = text;
@@ -350,13 +362,21 @@ class _PlannerHomeState extends State<_PlannerHome>
   Future<void> _read() async {
     try {
       final tasks = await widget.store.read();
+      var schedule = _briefingSchedule;
+      try {
+        schedule = await widget.briefingStore?.readSchedule() ?? schedule;
+      } catch (error) {
+        debugPrint('Could not load briefing times: $error');
+      }
       if (mounted) {
         setState(() {
           _tasks = tasks;
+          _briefingSchedule = schedule;
+          _summarySlot = _currentBriefing(_displayTime)?.id;
           _readFailed = false;
           _invalidateBriefing();
         });
-        unawaited(_refreshBriefing());
+        _refreshClock();
         unawaited(_maybeWelcome());
       }
     } catch (_) {
@@ -650,6 +670,10 @@ class _PlannerHomeState extends State<_PlannerHome>
           store: widget.toolStore,
           available: _toolAvailable,
           calendar: widget.calendar,
+          briefingSchedule: widget.briefingStore == null || _tasks == null
+              ? null
+              : _briefingSchedule,
+          saveBriefingSchedule: _saveBriefingSchedule,
           notifications: widget.notificationSettings,
           backup: widget.backup,
           restoreBackup: _restoreBackup,
@@ -657,6 +681,14 @@ class _PlannerHomeState extends State<_PlannerHome>
       ),
     );
     if (mounted && restored == true) _message('Backup restored.');
+  }
+
+  Future<void> _saveBriefingSchedule(BriefingSchedule schedule) async {
+    await widget.briefingStore!.saveSchedule(schedule);
+    if (!mounted) return;
+    _briefingSchedule = schedule;
+    _refreshClock();
+    if (_installed) await _scheduleBriefings();
   }
 
   Future<void> _restoreBackup(PlannerBackupSnapshot snapshot) async {
@@ -1115,6 +1147,7 @@ class _PlannerHomeState extends State<_PlannerHome>
       child: _tab == 0
           ? BriefingScreen(
               now: _displayTime,
+              schedule: _briefingSchedule,
               tasks: visible,
               summary: _summary,
               loading: _briefingLoading,

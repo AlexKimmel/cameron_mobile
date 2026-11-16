@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'briefing.dart';
 import 'models.dart';
 import 'notifications.dart';
 import 'recurrence.dart';
@@ -8,6 +9,7 @@ import 'task.dart';
 abstract final class PlannerPreferenceKeys {
   static const toolPrefix = 'planner.tools.v1.';
   static const briefingFocus = 'planner.briefing.focus';
+  static const briefingTimes = 'planner.briefing.times';
   static const quietHours = 'planner.notifications.quiet';
 
   static String notification(PlannerNotificationKind kind) =>
@@ -15,6 +17,7 @@ abstract final class PlannerPreferenceKeys {
 
   static bool includes(String key) =>
       key == briefingFocus ||
+      key == briefingTimes ||
       key == quietHours ||
       RegExp(r'^planner\.tools\.v1\.[a-z_][a-z0-9_]*$').hasMatch(key) ||
       PlannerNotificationKind.values.any((kind) => notification(kind) == key);
@@ -22,6 +25,13 @@ abstract final class PlannerPreferenceKeys {
   static bool accepts(String key, Object? value) {
     if (!includes(key)) return false;
     if (key == briefingFocus) return value is String;
+    if (key == briefingTimes) {
+      if (value is! String) return false;
+      final data = jsonDecode(value);
+      if (data is! Map<String, dynamic>) return false;
+      BriefingSchedule.fromJson(data);
+      return true;
+    }
     if (key != quietHours) return value is bool;
     if (value is! String) return false;
     final hours = jsonDecode(value);

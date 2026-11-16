@@ -7,6 +7,7 @@ class BriefingScreen extends StatelessWidget {
   const BriefingScreen({
     super.key,
     required this.now,
+    required this.schedule,
     required this.tasks,
     required this.summary,
     required this.loading,
@@ -17,6 +18,7 @@ class BriefingScreen extends StatelessWidget {
   });
 
   final DateTime now;
+  final BriefingSchedule schedule;
   final List<PlannerTask> tasks;
   final String? summary;
   final bool loading;
@@ -33,7 +35,7 @@ class BriefingScreen extends StatelessWidget {
       ..sort((a, b) => a.startMinute!.compareTo(b.startMinute!));
     final focus = active.fold(0, (total, task) => total + task.duration);
     final palette = context.palette;
-    final period = BriefingSlot.current(now)?.period;
+    final period = BriefingSlot.current(now, schedule: schedule)?.period;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

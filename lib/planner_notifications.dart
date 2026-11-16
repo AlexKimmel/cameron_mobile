@@ -268,8 +268,12 @@ class LocalPlannerNotifications
     }
   }
 
-  Future<void> briefingSaved(BriefingSlot slot) async {
-    if (BriefingSlot.current(DateTime.now())?.id != slot.id ||
+  Future<void> briefingSaved(
+    BriefingSlot slot,
+    BriefingSchedule schedule,
+  ) async {
+    if (BriefingSlot.current(DateTime.now(), schedule: schedule)?.id !=
+            slot.id ||
         !await isEnabled(PlannerNotificationKind.briefingReady) ||
         !await hasPermission()) {
       return;

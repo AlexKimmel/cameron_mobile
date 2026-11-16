@@ -26,36 +26,105 @@ enum BriefingPeriod {
   final String prompt;
 }
 
+class BriefingSchedule {
+  const BriefingSchedule._(this.morning, this.midday, this.evening);
+
+  factory BriefingSchedule({
+    required int morning,
+    required int midday,
+    required int evening,
+  }) {
+    final times = {morning, midday, evening};
+    if (times.length != 3 ||
+        times.any((minute) => minute < 0 || minute >= 1440)) {
+      throw const FormatException('Choose three different briefing times.');
+    }
+    return BriefingSchedule._(morning, midday, evening);
+  }
+
+  static const defaults = BriefingSchedule._(7 * 60, 12 * 60, 18 * 60);
+
+  final int morning;
+  final int midday;
+  final int evening;
+
+  int minuteFor(BriefingPeriod period) => switch (period) {
+    BriefingPeriod.morning => morning,
+    BriefingPeriod.midday => midday,
+    BriefingPeriod.evening => evening,
+  };
+
+  String get key => '$morning-$midday-$evening';
+
+  Map<String, int> toJson() => {
+    for (final period in BriefingPeriod.values) period.name: minuteFor(period),
+  };
+
+  factory BriefingSchedule.fromJson(Map<String, dynamic> json) {
+    if (json['morning'] is! int ||
+        json['midday'] is! int ||
+        json['evening'] is! int) {
+      throw const FormatException('Choose a valid time for each briefing.');
+    }
+    return BriefingSchedule(
+      morning: json['morning'] as int,
+      midday: json['midday'] as int,
+      evening: json['evening'] as int,
+    );
+  }
+}
+
 class BriefingSlot {
   const BriefingSlot(this.start, this.period);
 
   final DateTime start;
   final BriefingPeriod period;
 
-  String get id => '${dayKey(start)}-${period.name}';
+  String get id {
+    final dateAndPeriod = '${dayKey(start)}-${period.name}';
+    final minute = start.hour * 60 + start.minute;
+    return minute == BriefingSchedule.defaults.minuteFor(period)
+        ? dateAndPeriod
+        : '$dateAndPeriod-$minute';
+  }
 
-  static BriefingSlot? current(DateTime now) {
-    for (final period in BriefingPeriod.values.reversed) {
-      final start = _at(now, period);
-      if (!start.isAfter(now)) return BriefingSlot(start, period);
+  static BriefingSlot? current(
+    DateTime now, {
+    BriefingSchedule schedule = BriefingSchedule.defaults,
+  }) {
+    for (final slot in _onDate(now, schedule).reversed) {
+      if (!slot.start.isAfter(now)) return slot;
     }
     return null;
   }
 
-  static BriefingSlot next(DateTime now) {
-    for (final period in BriefingPeriod.values) {
-      final start = _at(now, period);
-      if (start.isAfter(now)) return BriefingSlot(start, period);
+  static BriefingSlot next(
+    DateTime now, {
+    BriefingSchedule schedule = BriefingSchedule.defaults,
+  }) {
+    for (final slot in _onDate(now, schedule)) {
+      if (slot.start.isAfter(now)) return slot;
     }
-    final first = BriefingPeriod.values.first;
-    return BriefingSlot(
-      DateTime(now.year, now.month, now.day + 1, first.hour),
-      first,
-    );
+    return _onDate(DateTime(now.year, now.month, now.day + 1), schedule).first;
   }
 
-  static DateTime _at(DateTime day, BriefingPeriod period) =>
-      DateTime(day.year, day.month, day.day, period.hour);
+  static List<BriefingSlot> _onDate(DateTime day, BriefingSchedule schedule) =>
+      [
+        for (final period in BriefingPeriod.values)
+          BriefingSlot(
+            DateTime(
+              day.year,
+              day.month,
+              day.day,
+              0,
+              schedule.minuteFor(period),
+            ),
+            period,
+          ),
+      ]..sort((a, b) {
+        final time = a.start.compareTo(b.start);
+        return time == 0 ? a.period.index.compareTo(b.period.index) : time;
+      });
 }
 
 abstract interface class BriefingStore {
@@ -63,6 +132,8 @@ abstract interface class BriefingStore {
   Future<void> save(BriefingSlot slot, String input, String summary);
   Future<String> readFocus();
   Future<void> saveFocus(String focus);
+  Future<BriefingSchedule> readSchedule();
+  Future<void> saveSchedule(BriefingSchedule schedule);
 }
 
 class BriefingService {
@@ -71,8 +142,15 @@ class BriefingService {
   final BriefingStore store;
   final PlannerAssistant assistant;
 
-  Future<String?> refresh(DateTime now, List<PlannerTask> tasks) async {
-    final slot = BriefingSlot.current(now);
+  Future<String?> refresh(
+    DateTime now,
+    List<PlannerTask> tasks, {
+    BriefingSchedule? schedule,
+  }) async {
+    final slot = BriefingSlot.current(
+      now,
+      schedule: schedule ?? await store.readSchedule(),
+    );
     if (slot == null) return null;
 
     final today = dayKey(now);

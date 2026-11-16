@@ -18,6 +18,85 @@ void main() {
   });
 
   test(
+    'Saved briefing times control generation and roll over locally',
+    () async {
+      final store = _Store();
+      final assistant = _Assistant();
+      final service = BriefingService(store: store, assistant: assistant);
+      final schedule = BriefingSchedule(
+        morning: 570,
+        midday: 750,
+        evening: 1110,
+      );
+      await store.saveSchedule(schedule);
+      const tasks = [
+        PlannerTask(id: 'today', title: 'Design review', day: '2026-11-15'),
+      ];
+      expect(
+        await service.refresh(DateTime(2026, 11, 15, 9, 29), tasks),
+        isNull,
+      );
+      expect(
+        await service.refresh(DateTime(2026, 11, 15, 9, 30), tasks),
+        'Briefing 1.',
+      );
+      expect(assistant.prompts.single, contains('morning briefing'));
+      expect(
+        BriefingSlot.next(DateTime(2026, 11, 15, 23), schedule: schedule).start,
+        DateTime(2026, 11, 16, 9, 30),
+      );
+    },
+  );
+
+  testWidgets('Saving briefing times refreshes the current briefing', (
+    tester,
+  ) async {
+    final briefing = _Store();
+    final assistant = _Assistant();
+    var schedules = 0;
+    final now = DateTime(2026, 11, 15, 9);
+    await briefing.saveSchedule(
+      BriefingSchedule(morning: 570, midday: 750, evening: 1110),
+    );
+    await tester.pumpWidget(
+      PlannerApp(
+        store: MemoryTaskStore([
+          const PlannerTask(
+            id: 'design',
+            title: 'Design review',
+            day: '2026-11-15',
+          ),
+        ]),
+        assistant: assistant,
+        briefingStore: briefing,
+        scheduleBriefings: () async {
+          schedules++;
+        },
+        clock: () => now,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(assistant.prompts, isEmpty);
+    final initialSchedules = schedules;
+    await tester.tap(find.byTooltip('Tool settings'));
+    await tester.pumpAndSettle();
+    final edit = find.text('Edit briefing times');
+    await tester.scrollUntilVisible(edit.hitTestable(), 200);
+    await tester.pumpAndSettle();
+    await tester.tap(edit);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Use default times'));
+    await tester.tap(find.text('Save times'));
+    await tester.pumpAndSettle();
+    expect((await briefing.readSchedule()).key, BriefingSchedule.defaults.key);
+    expect(schedules, initialSchedules + 1);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('Briefing 1.'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  test(
     'Each briefing uses its own read-only prompt and reuses its saved result',
     () async {
       final assistant = _Assistant();
@@ -128,6 +207,7 @@ void main() {
 class _Store implements BriefingStore {
   final _summaries = <(String, String), String>{};
   String _focus = '';
+  BriefingSchedule _schedule = BriefingSchedule.defaults;
 
   @override
   Future<String?> read(BriefingSlot slot, String input) async =>
@@ -144,6 +224,14 @@ class _Store implements BriefingStore {
   @override
   Future<void> saveFocus(String focus) async {
     _focus = focus;
+  }
+
+  @override
+  Future<BriefingSchedule> readSchedule() async => _schedule;
+
+  @override
+  Future<void> saveSchedule(BriefingSchedule schedule) async {
+    _schedule = schedule;
   }
 }
 
