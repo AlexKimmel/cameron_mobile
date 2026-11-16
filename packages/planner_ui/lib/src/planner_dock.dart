@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:material_3_expressive/material_3_expressive.dart';
+import 'package:m3e_core/m3e_core.dart' as m3e_core;
 import 'package:material_ui/material_ui.dart';
 
 import 'design.dart';
@@ -186,12 +187,14 @@ class _VoiceButton extends StatelessWidget {
                   : busy
                   ? context.reduceMotion
                         ? Icon(Icons.hourglass_top, color: ink)
-                        : SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: ink,
+                        : m3e_core.M3ELoadingIndicator(
+                            key: const ValueKey('voice-loading-indicator'),
+                            color: ink,
+                            constraints: const BoxConstraints.tightFor(
+                              width: 32,
+                              height: 32,
                             ),
+                            semanticsLabel: 'Assistant is working',
                           )
                   : Icon(Icons.mic_none_rounded, color: ink, size: 25),
             ),
