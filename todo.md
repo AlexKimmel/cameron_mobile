@@ -1,8 +1,9 @@
-- [x] Better user input feedback. don't show a popup but rather have the text apear as a chat message in the top right with then the models tool calls under it and the answere to accept or dissmiss. This should be an overlay over the complete screen.
-- [x] add animation to the chat overlay. that handle the async calls properly
-- [x] Integrate with google health connect, and apple health for more information for the brefings
-- [x] completet tasks and previous task have a visuall bug
-- [x] remove cards for filtering use a button groupe instead
-- [x] for all buttons apply m3e design pattern such that selected buttons are curcular rounded and non selected once are square rounded. apply this also to the tool bar
-- [x] use the `m3e_core` plugin to add the m3e loading indicator for when the ai is loading
-- [x] use the m3e laoding indicator in the chat overlay for the ai loading between tool calls and answers
+- [ ] Integrate the overlay into the brefing screen remove the thinking text. Here make it look more Ai like with shimmering text boxes and transparency. 
+- [ ] add tools for the llm to ask questions and for the user to give follow ups. Multiple choice with by default one field that is always free text for use.
+- [ ] make the fab for speach the m3e loading animation
+- [ ] make the system prompt adjustable in the settings and lock it down such that it can better create tasks items
+- [ ] make it possible to use tools in the breefing display charts from google health connect. That it can automatically insert. There should be no processing on the users part.
+- [ ] in the breefing make it also possible to for it to ask questions. Have these questions tool calls easy to interact like selecting from 1 to 5 or between multiple choice. Keep it m3e like.
+- [ ] make the beefing a bigger part of the main page. Use the complete page. Shift the timeline to the other page.
+- [ ] With the quesitons asked in the breefing. Make a dayly memory. For example if the ai asks how are you feeling today because you did alot of sports yesterday. THe user answerews a 1 out of 5 it then should rescedule for a slower more active recovery day. 
+- [ ] create two logo examples hint at the name coming from the wask that has a dart tale "cameron" keep it simple
