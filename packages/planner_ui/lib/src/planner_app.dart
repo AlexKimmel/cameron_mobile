@@ -890,6 +890,31 @@ class _PlannerHomeState extends State<_PlannerHome>
     }
   }
 
+  Future<void> _answerAssistantQuestion(String question, String answer) async {
+    final value = answer.trim();
+    if (value.isEmpty) return;
+    final original = _chatPrompt ?? '';
+    await _ask(
+      'Original request: $original\nAssistant question: $question\nUser answer: $value',
+    );
+  }
+
+  Future<void> _followUpAssistant() async {
+    final original = _chatPrompt;
+    final reply = _chatReply;
+    if (original == null || reply == null) return;
+    final result = await showPlannerSheet<PromptResult>(
+      context,
+      const PromptSheet(),
+    );
+    if (!mounted) return;
+    if (result case SubmitPrompt(:final text)) {
+      await _ask(
+        'Original request: $original\nAssistant reply: ${reply.text}\nFollow-up: $text',
+      );
+    }
+  }
+
   void _dismissAssistantReview() {
     _assistantRequestId++;
     setState(() {
@@ -1418,7 +1443,42 @@ class _PlannerHomeState extends State<_PlannerHome>
                                             CrossAxisAlignment.stretch,
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          if (reply.calls.isNotEmpty) ...[
+                                          if (reply.calls.any(
+                                            (call) =>
+                                                call.name ==
+                                                PlannerTools.askQuestion,
+                                          )) ...[
+                                            for (final call
+                                                in reply.calls.where(
+                                                  (call) =>
+                                                      call.name ==
+                                                      PlannerTools.askQuestion,
+                                                ))
+                                              _AssistantQuestion(
+                                                question:
+                                                    call.arguments['question']
+                                                        is String
+                                                    ? call.arguments['question']
+                                                          as String
+                                                    : 'What would you like to do?',
+                                                choices:
+                                                    (call.arguments['choices']
+                                                                is List
+                                                            ? call.arguments['choices']
+                                                                  as List
+                                                            : const [])
+                                                        .whereType<String>()
+                                                        .take(5)
+                                                        .toList(),
+                                                onAnswer:
+                                                    _answerAssistantQuestion,
+                                              ),
+                                          ],
+                                          if (reply.calls.any(
+                                            (call) =>
+                                                call.name !=
+                                                PlannerTools.askQuestion,
+                                          )) ...[
                                             const SizedBox(height: 18),
                                             Text(
                                               'Proposed actions',
@@ -1426,7 +1486,14 @@ class _PlannerHomeState extends State<_PlannerHome>
                                             ),
                                             const SizedBox(height: 6),
                                             for (final (index, call)
-                                                in reply.calls.indexed)
+                                                in reply.calls
+                                                    .where(
+                                                      (call) =>
+                                                          call.name !=
+                                                          PlannerTools
+                                                              .askQuestion,
+                                                    )
+                                                    .indexed)
                                               TweenAnimationBuilder<double>(
                                                 key: ValueKey(
                                                   '${call.name}-$index',
@@ -1522,6 +1589,16 @@ class _PlannerHomeState extends State<_PlannerHome>
                                           child: const Text('Dismiss'),
                                         ),
                                         if (reply != null)
+                                          TextButton(
+                                            onPressed: _followUpAssistant,
+                                            child: const Text('Follow up'),
+                                          ),
+                                        if (reply != null &&
+                                            !reply.calls.any(
+                                              (call) =>
+                                                  call.name ==
+                                                  PlannerTools.askQuestion,
+                                            ))
                                           FilledButton(
                                             onPressed: _acceptAssistantReview,
                                             child: const Text('Accept'),
@@ -1759,4 +1836,63 @@ class _AssistantShimmerState extends State<_AssistantShimmer>
       ),
     );
   }
+}
+
+class _AssistantQuestion extends StatefulWidget {
+  const _AssistantQuestion({
+    required this.question,
+    required this.choices,
+    required this.onAnswer,
+  });
+  final String question;
+  final List<String> choices;
+  final Future<void> Function(String, String) onAnswer;
+  @override
+  State<_AssistantQuestion> createState() => _AssistantQuestionState();
+}
+
+class _AssistantQuestionState extends State<_AssistantQuestion> {
+  final _controller = TextEditingController();
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(widget.question, style: context.type.titleMedium),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final choice in widget.choices)
+              ActionChip(
+                label: Text(choice),
+                onPressed: () => widget.onAnswer(widget.question, choice),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _controller,
+          decoration: InputDecoration(
+            labelText: 'Your answer',
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.send),
+              tooltip: 'Send answer',
+              onPressed: () =>
+                  widget.onAnswer(widget.question, _controller.text),
+            ),
+          ),
+          onSubmitted: (value) => widget.onAnswer(widget.question, value),
+        ),
+      ],
+    ),
+  );
 }

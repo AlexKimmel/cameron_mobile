@@ -49,6 +49,7 @@ void main() {
     expect(find.text('Review actions'), findsNothing);
     expect(opened, isEmpty);
     if (find.text('Dismiss').evaluate().isNotEmpty) {
+      await tester.ensureVisible(find.text('Dismiss'));
       await tester.tap(find.text('Dismiss'));
       await tester.pumpAndSettle();
     }
@@ -255,7 +256,7 @@ void main() {
     await tester.tap(find.text('Send'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Thinking…'), findsOneWidget);
+    expect(find.bySemanticsLabel('Assistant is generating a response'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('chat-loading-indicator')),
       findsOneWidget,

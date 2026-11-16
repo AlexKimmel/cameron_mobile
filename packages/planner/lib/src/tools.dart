@@ -48,6 +48,7 @@ class ToolResult {
 }
 
 class PlannerTools {
+  static const askQuestion = 'ask_user_question';
   static const createTask = 'create_task';
   static const completeTask = 'complete_task';
   static const rescheduleTask = 'reschedule_task';
