@@ -72,6 +72,12 @@ const _tasks = [
     day: _day,
     completedOn: _day,
   ),
+  PlannerTask(
+    id: 'migration',
+    title: 'Document migration checklist',
+    day: '2026-11-14',
+    completedOn: '2026-11-14',
+  ),
 ];
 
 class _PreviewAssistant implements PlannerAssistant {

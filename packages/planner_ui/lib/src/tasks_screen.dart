@@ -248,6 +248,7 @@ class TasksScreen extends StatelessWidget {
         children: [
           for (final task in tasks)
             ListTile(
+              key: ValueKey('completed-${task.id}'),
               leading: IconButton.filled(
                 icon: const Icon(Icons.check, size: 16),
                 tooltip: 'Reopen ${task.title}',

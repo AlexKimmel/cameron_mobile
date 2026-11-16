@@ -138,6 +138,29 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets(
+    'Previously completed tasks show their date and can be reopened',
+    (tester) async {
+      await tester.pumpWidget(tasksPreview());
+      await tester.pumpAndSettle();
+
+      final section = find.text('Previously completed · 1');
+      await tester.ensureVisible(section);
+      await tester.tap(section);
+      await tester.pumpAndSettle();
+      expect(find.text('Document migration checklist'), findsOneWidget);
+      expect(find.text('Nov 14, 2026'), findsOneWidget);
+
+      final reopen = find.byTooltip('Reopen Document migration checklist');
+      await tester.ensureVisible(reopen);
+      await tester.tap(reopen);
+      await tester.pumpAndSettle();
+      expect(section, findsNothing);
+      expect(find.text('Document migration checklist'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   testWidgets('Task search matches titles, notes, and completed tasks', (
     tester,
   ) async {
