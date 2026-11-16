@@ -11,4 +11,5 @@ dependencies:
   dynamic_color: ^2.1.0
   material_3_expressive: ^1.2.1
   material_ui: ^1.11.0
+  m3e_core: ^1.1.5
   planner:

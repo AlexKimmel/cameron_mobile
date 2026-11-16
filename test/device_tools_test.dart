@@ -221,6 +221,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
       expect(find.text('Generating response'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('ai-loading-indicator')),
+        findsOneWidget,
+      );
 
       assistant.first.completeError(StateError('Model failed'));
       await tester.pumpAndSettle();

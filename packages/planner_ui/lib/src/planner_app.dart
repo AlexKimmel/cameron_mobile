@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:m3e_core/m3e_core.dart' as m3e_core;
 import 'package:planner/planner.dart';
 
 import 'briefing_screen.dart';
@@ -1628,7 +1629,21 @@ class _PlannerHomeState extends State<_PlannerHome>
                             children: [
                               Text(status, style: context.type.labelMedium),
                               const SizedBox(height: 6),
-                              if (!context.reduceMotion ||
+                              if (_generatingResponse)
+                                m3e_core.M3ELoadingIndicator(
+                                  key: const ValueKey('ai-loading-indicator'),
+                                  color: context.palette.primary,
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: 40,
+                                    height: 40,
+                                  ),
+                                  value: context.reduceMotion ? 0.5 : null,
+                                  semanticsLabel: 'Generating response',
+                                  semanticsValue: context.reduceMotion
+                                      ? 'In progress'
+                                      : null,
+                                )
+                              else if (!context.reduceMotion ||
                                   (_installing && _progress != null))
                                 LinearProgressIndicator(
                                   value: _installing ? _progress : null,
