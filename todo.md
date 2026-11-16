@@ -5,4 +5,4 @@
 - [x] remove cards for filtering use a button groupe instead
 - [x] for all buttons apply m3e design pattern such that selected buttons are curcular rounded and non selected once are square rounded. apply this also to the tool bar
 - [x] use the `m3e_core` plugin to add the m3e loading indicator for when the ai is loading
-- [ ] use the m3e laoding indicator in the chat overlay for the ai loading between tool calls and answers
+- [x] use the m3e laoding indicator in the chat overlay for the ai loading between tool calls and answers

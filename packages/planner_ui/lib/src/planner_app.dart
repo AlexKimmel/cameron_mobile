@@ -1345,12 +1345,25 @@ class _PlannerHomeState extends State<_PlannerHome>
                                                     : 'thinking',
                                               ),
                                               children: [
-                                                const SizedBox.square(
-                                                  dimension: 18,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                        strokeWidth: 2,
+                                                m3e_core.M3ELoadingIndicator(
+                                                  key: const ValueKey(
+                                                    'chat-loading-indicator',
+                                                  ),
+                                                  color: palette.primary,
+                                                  constraints:
+                                                      const BoxConstraints.tightFor(
+                                                        width: 32,
+                                                        height: 32,
                                                       ),
+                                                  value: context.reduceMotion
+                                                      ? 0.5
+                                                      : null,
+                                                  semanticsLabel:
+                                                      'Assistant is processing',
+                                                  semanticsValue:
+                                                      context.reduceMotion
+                                                      ? 'In progress'
+                                                      : null,
                                                 ),
                                                 const SizedBox(width: 10),
                                                 Text(

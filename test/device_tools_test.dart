@@ -256,6 +256,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Thinking…'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('chat-loading-indicator')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.bySemanticsLabel('Dismiss response'));
     await tester.pumpAndSettle();
