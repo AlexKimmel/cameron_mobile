@@ -1,4 +1,4 @@
-- [ ] Integrate the overlay into the brefing screen remove the thinking text. Here make it look more Ai like with shimmering text boxes and transparency. 
+- [x] Integrate the overlay into the brefing screen remove the thinking text. Here make it look more Ai like with shimmering text boxes and transparency. 
 - [ ] add tools for the llm to ask questions and for the user to give follow ups. Multiple choice with by default one field that is always free text for use.
 - [ ] make the fab for speach the m3e loading animation
 - [ ] make the system prompt adjustable in the settings and lock it down such that it can better create tasks items

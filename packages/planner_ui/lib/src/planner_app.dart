@@ -1225,6 +1225,14 @@ class _PlannerHomeState extends State<_PlannerHome>
                   : _editBriefingFocus,
               activities: _activities,
               onEdit: (task) => _edit(task: task),
+              assistantReview: _chatPrompt == null
+                  ? null
+                  : SizedBox(
+                      height: MediaQuery.sizeOf(context).height * .7,
+                      child: Stack(
+                        children: [_assistantOverlay(context, inline: true)],
+                      ),
+                    ),
             )
           : TasksScreen(
               tasks: visible,
@@ -1246,7 +1254,7 @@ class _PlannerHomeState extends State<_PlannerHome>
     );
   }
 
-  Widget _assistantOverlay(BuildContext context) {
+  Widget _assistantOverlay(BuildContext context, {bool inline = false}) {
     final prompt = _chatPrompt;
     final palette = context.palette;
     final reply = _chatReply;
@@ -1268,7 +1276,8 @@ class _PlannerHomeState extends State<_PlannerHome>
             : Stack(
                 key: const ValueKey('assistant-overlay-visible'),
                 children: [
-                  ModalBarrier(color: palette.scrim.withValues(alpha: .42)),
+                  if (!inline)
+                    ModalBarrier(color: palette.scrim.withValues(alpha: .42)),
                   SafeArea(
                     child: Align(
                       alignment: Alignment.topRight,
@@ -1280,8 +1289,12 @@ class _PlannerHomeState extends State<_PlannerHome>
                             maxHeight: MediaQuery.sizeOf(context).height * .82,
                           ),
                           child: Material(
-                            color: palette.surfaceContainerHigh,
-                            elevation: 12,
+                            color: inline
+                                ? palette.surfaceContainerHigh.withValues(
+                                    alpha: .88,
+                                  )
+                                : palette.surfaceContainerHigh,
+                            elevation: inline ? 0 : 12,
                             shadowColor: palette.shadow,
                             borderRadius: BorderRadius.circular(28),
                             clipBehavior: Clip.antiAlias,
@@ -1342,7 +1355,7 @@ class _PlannerHomeState extends State<_PlannerHome>
                                               key: ValueKey(
                                                 _asking && !_chatLoading
                                                     ? 'applying'
-                                                    : 'thinking',
+                                                    : 'generating',
                                               ),
                                               children: [
                                                 m3e_core.M3ELoadingIndicator(
@@ -1366,13 +1379,14 @@ class _PlannerHomeState extends State<_PlannerHome>
                                                       : null,
                                                 ),
                                                 const SizedBox(width: 10),
-                                                Text(
-                                                  _asking && !_chatLoading
-                                                      ? 'Applying approved actions…'
-                                                      : 'Thinking…',
-                                                  style:
-                                                      context.type.bodyMedium,
-                                                ),
+                                                if (_asking && !_chatLoading)
+                                                  Text(
+                                                    'Applying approved actions…',
+                                                    style:
+                                                        context.type.bodyMedium,
+                                                  )
+                                                else
+                                                  const _AssistantShimmer(),
                                               ],
                                             )
                                           : const SizedBox.shrink(
@@ -1686,10 +1700,61 @@ class _PlannerHomeState extends State<_PlannerHome>
                     ),
                   ),
                 ),
-                _assistantOverlay(context),
+                if (_tab != 0) _assistantOverlay(context),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AssistantShimmer extends StatefulWidget {
+  const _AssistantShimmer();
+
+  @override
+  State<_AssistantShimmer> createState() => _AssistantShimmerState();
+}
+
+class _AssistantShimmerState extends State<_AssistantShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1300),
+  )..forward();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = context.palette.primary;
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) => Semantics(
+        label: 'Assistant is generating a response',
+        child: Row(
+          children: [
+            for (final width in [56.0, 32.0, 44.0]) ...[
+              Container(
+                width: width,
+                height: 12,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: color.withValues(
+                    alpha: context.reduceMotion
+                        ? .32
+                        : .16 + .3 * _controller.value,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+          ],
         ),
       ),
     );

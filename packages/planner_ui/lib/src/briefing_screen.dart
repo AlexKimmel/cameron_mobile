@@ -15,6 +15,7 @@ class BriefingScreen extends StatelessWidget {
     this.onEditFocus,
     required this.activities,
     required this.onEdit,
+    this.assistantReview,
   });
 
   final DateTime now;
@@ -26,6 +27,7 @@ class BriefingScreen extends StatelessWidget {
   final VoidCallback? onEditFocus;
   final List<String> activities;
   final ValueChanged<PlannerTask> onEdit;
+  final Widget? assistantReview;
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +59,10 @@ class BriefingScreen extends StatelessWidget {
               ),
           ],
         ),
+        if (assistantReview != null) ...[
+          const SizedBox(height: 12),
+          assistantReview!,
+        ],
         if (loading)
           context.reduceMotion
               ? Semantics(

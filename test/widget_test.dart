@@ -275,6 +275,10 @@ void main() {
         'Add a 15-minute break before lunch.',
       );
       await tester.tap(find.text('Submit'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('Review assistant response'), findsOneWidget);
+      await tester.tap(find.text('Accept'));
       await tester.pumpAndSettle();
       expect(find.text('Review transcript'), findsNothing);
       expect(find.text('Take a break'), findsOneWidget);
