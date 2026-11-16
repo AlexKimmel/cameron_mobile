@@ -158,6 +158,54 @@ void main() {
     },
   );
 
+  test('Opted-in health context informs and invalidates briefings', () async {
+    final assistant = _Assistant();
+    final health = _FakeBriefingHealth('4200 steps today')..enabled = true;
+    final service = BriefingService(
+      store: _Store(),
+      assistant: assistant,
+      health: health,
+    );
+    final now = DateTime(2026, 11, 15, 9);
+
+    expect(await service.refresh(now, []), 'Briefing 1.');
+    expect(assistant.prompts.single, contains('4200 steps today'));
+    expect(assistant.taskIds.single, isEmpty);
+
+    health.context = '6000 steps today';
+    expect(await service.refresh(now, []), 'Briefing 2.');
+    expect(assistant.prompts.last, contains('6000 steps today'));
+  });
+
+  testWidgets('Health context can be enabled from Tool settings', (
+    tester,
+  ) async {
+    final health = _FakeBriefingHealth('4200 steps today');
+    await tester.pumpWidget(
+      PlannerApp(
+        store: MemoryTaskStore(),
+        assistant: _Assistant(),
+        healthBriefing: health,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Tool settings'));
+    await tester.pumpAndSettle();
+
+    final healthSwitch = find.widgetWithText(
+      SwitchListTile,
+      'Health context for briefings',
+    );
+    await tester.ensureVisible(healthSwitch);
+    await tester.pumpAndSettle();
+    expect(tester.widget<SwitchListTile>(healthSwitch).value, isFalse);
+    await tester.tap(healthSwitch);
+    await tester.pumpAndSettle();
+    expect(health.accessRequests, 1);
+    expect(tester.widget<SwitchListTile>(healthSwitch).value, isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets(
     'Saving a briefing focus and completing tasks refresh the summary',
     (tester) async {
@@ -232,6 +280,30 @@ class _Store implements BriefingStore {
   @override
   Future<void> saveSchedule(BriefingSchedule schedule) async {
     _schedule = schedule;
+  }
+}
+
+class _FakeBriefingHealth implements BriefingHealth {
+  _FakeBriefingHealth(this.context);
+
+  String context;
+  bool enabled = false;
+  int accessRequests = 0;
+
+  @override
+  Future<void> disable() async => enabled = false;
+
+  @override
+  Future<bool> isEnabled() async => enabled;
+
+  @override
+  Future<String?> readContext(DateTime now) async => enabled ? context : null;
+
+  @override
+  Future<bool> requestAccess() async {
+    accessRequests++;
+    enabled = true;
+    return true;
   }
 }
 

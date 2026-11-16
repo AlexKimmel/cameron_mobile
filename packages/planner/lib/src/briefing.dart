@@ -136,11 +136,23 @@ abstract interface class BriefingStore {
   Future<void> saveSchedule(BriefingSchedule schedule);
 }
 
+abstract interface class BriefingHealth {
+  Future<bool> isEnabled();
+  Future<bool> requestAccess();
+  Future<void> disable();
+  Future<String?> readContext(DateTime now);
+}
+
 class BriefingService {
-  const BriefingService({required this.store, required this.assistant});
+  const BriefingService({
+    required this.store,
+    required this.assistant,
+    this.health,
+  });
 
   final BriefingStore store;
   final PlannerAssistant assistant;
+  final BriefingHealth? health;
 
   Future<String?> refresh(
     DateTime now,
@@ -165,13 +177,18 @@ class BriefingService {
                   !task.done),
         )
         .toList();
-    if (relevant.isEmpty) return null;
+    final healthContext = await health?.readContext(now);
+    if (relevant.isEmpty && healthContext == null) return null;
 
     final focus = (await store.readFocus()).trim();
     final input = sha256
         .convert(
           utf8.encode(
-            jsonEncode([focus, for (final task in relevant) task.toJson()]),
+            jsonEncode([
+              focus,
+              healthContext,
+              for (final task in relevant) task.toJson(),
+            ]),
           ),
         )
         .toString();
@@ -181,9 +198,11 @@ class BriefingService {
     final reply = await assistant.ask(
       [
         slot.period.prompt,
-        'Use at most two short sentences and no heading. Use only facts from the planner data.',
+        'Use at most two short sentences and no heading. Use only facts from the supplied planner and health context.',
         if (focus.isNotEmpty)
           'Prioritize this briefing focus when relevant: ${jsonEncode(focus)}.',
+        if (healthContext != null)
+          'Optional recent activity context, shared by the user for this briefing: ${jsonEncode(healthContext)}. Mention it only when useful; do not make medical recommendations.',
       ].join(' '),
       tasks: relevant,
       now: now,

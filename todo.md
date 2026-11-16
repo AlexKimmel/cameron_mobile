@@ -1,6 +1,6 @@
 - [x] Better user input feedback. don't show a popup but rather have the text apear as a chat message in the top right with then the models tool calls under it and the answere to accept or dissmiss. This should be an overlay over the complete screen.
 - [x] add animation to the chat overlay. that handle the async calls properly
-- [ ] Integrate with google health connect, and apple health for more information for the brefings
+- [x] Integrate with google health connect, and apple health for more information for the brefings
 - [ ] completet tasks and previous task have a visuall bug
 - [ ] remove cards for filtering use a button groupe instead
 - [ ] for all buttons apply m3e design pattern such that selected buttons are curcular rounded and non selected once are square rounded. apply this also to the tool bar

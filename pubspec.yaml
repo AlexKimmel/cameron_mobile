@@ -15,10 +15,12 @@ workspace:
 dependencies:
   flutter:
     sdk: flutter
+  health: ^13.3.2
   file_picker: ^13.3.3
   flutter_local_notifications: ^22.0.0
   material_ui: ^1.11.0
   path_provider: ^2.1.6
+  permission_handler: ^13.0.2
   planner:
   planner_assistant:
   planner_ui:

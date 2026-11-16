@@ -36,6 +36,10 @@
 	<string>Cameron reads calendar event titles and times for the date you approve.</string>
 	<key>NSCalendarsUsageDescription</key>
 	<string>Cameron reads calendar event titles and times for the date you approve.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Cameron reads steps, sleep, and workouts only when you enable health context for local briefings.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Cameron does not write health data.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Dictate a prompt for your local day planner.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

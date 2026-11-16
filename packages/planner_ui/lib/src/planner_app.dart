@@ -29,6 +29,7 @@ class PlannerApp extends StatelessWidget {
     this.deviceTools = communicationTools,
     this.dictation,
     this.briefingStore,
+    this.healthBriefing,
     this.scheduleBriefings,
     this.initialTab = 0,
     this.clock = DateTime.now,
@@ -48,6 +49,7 @@ class PlannerApp extends StatelessWidget {
   final PlannerOnboarding? onboarding;
   final PlannerDictation? dictation;
   final BriefingStore? briefingStore;
+  final BriefingHealth? healthBriefing;
   final Future<void> Function()? scheduleBriefings;
   final int initialTab;
   final DateTime Function() clock;
@@ -82,6 +84,7 @@ class PlannerApp extends StatelessWidget {
         deviceTools: deviceTools,
         dictation: dictation,
         briefingStore: briefingStore,
+        healthBriefing: healthBriefing,
         scheduleBriefings: scheduleBriefings,
         initialTab: initialTab,
         clock: clock,
@@ -106,6 +109,7 @@ class _PlannerHome extends StatefulWidget {
     required this.deviceTools,
     required this.dictation,
     required this.briefingStore,
+    required this.healthBriefing,
     required this.scheduleBriefings,
     required this.initialTab,
     required this.clock,
@@ -125,6 +129,7 @@ class _PlannerHome extends StatefulWidget {
   final PlannerOnboarding? onboarding;
   final PlannerDictation? dictation;
   final BriefingStore? briefingStore;
+  final BriefingHealth? healthBriefing;
   final Future<void> Function()? scheduleBriefings;
   final int initialTab;
   final DateTime Function() clock;
@@ -320,6 +325,7 @@ class _PlannerHomeState extends State<_PlannerHome>
       final text = await BriefingService(
         store: store,
         assistant: widget.assistant,
+        health: widget.healthBriefing,
       ).refresh(now, tasks, schedule: schedule);
       if (mounted && stillCurrent()) {
         setState(() {
@@ -677,6 +683,8 @@ class _PlannerHomeState extends State<_PlannerHome>
           store: widget.toolStore,
           available: _toolAvailable,
           calendar: widget.calendar,
+          healthBriefing: widget.healthBriefing,
+          onHealthChanged: _retryBriefing,
           briefingSchedule: widget.briefingStore == null || _tasks == null
               ? null
               : _briefingSchedule,

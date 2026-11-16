@@ -3,6 +3,7 @@ import 'package:planner/planner.dart';
 import 'package:planner_ui/planner_ui.dart';
 
 import 'briefing_jobs.dart';
+import 'health_briefing.dart';
 import 'local_backup.dart';
 import 'planner_notifications.dart';
 import 'platform_services.dart';
@@ -31,6 +32,9 @@ void main() {
       assistant: assistant,
       modelLibrary: assistant.models,
       briefingStore: PreferencesBriefingStore(notifications: notifications),
+      healthBriefing: LocalHealthBriefing.supported
+          ? LocalHealthBriefing()
+          : null,
       scheduleBriefings: startBriefingJobs,
       toolStore: PreferencesDeviceToolStore(),
       openDeviceTool: mobileToolOpener,

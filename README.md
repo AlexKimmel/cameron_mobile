@@ -17,6 +17,8 @@ Choose **Repeat** when editing an open task to set a daily, weekly, or monthly p
 
 Cameron prepares read-only briefings at 07:00, 12:00, and 18:00 by default in the device’s local time. Open **Tool settings** to edit those times or opt in to **Daily briefings** notifications. Android WorkManager and iOS Background Tasks run briefings when the OS allows. Opening the briefing catches up the current time slot if the background run was delayed. Briefings use the selected model and refresh when relevant tasks change. Open **Briefing focus** to tell Cameron what to emphasize, including unfinished priorities or completed work.
 
+You can also opt in to **Health context for briefings** in **Tool settings**. With read-only access, Cameron can use today’s step total, sleep duration, and recent workout count from Apple Health or Google Health Connect. The app reads this data only while preparing a briefing, sends a short aggregate to the on-device model, and does not save the raw records. You can turn this off at any time in Tool settings; platform permissions remain manageable in Apple Health or Health Connect. On Android, scheduled briefings include health context only when Health Connect grants background access and the OS runs the job.
+
 On Android and iOS, enable **Scheduled tasks** or **Daily briefings** in the Notifications section under **Tool settings**. Timed tasks use their start time and date-only tasks use 09:00 local time. Use **Task reminder** in the task editor and enable **Task reminders** in Notifications to receive an early alert. Task alerts offer a ten-minute snooze. **Quiet hours** delay task alerts and snoozes until the end of the selected period. Cameron schedules up to 48 pending task alerts and refreshes the queue when tasks change or the app resumes. Background delivery follows device notification and battery settings.
 
 Use **Backup** under **Tool settings** to export a local JSON file or preview and restore one. A restore replaces tasks and saved preferences, including tool switches, briefing focus, and notification settings. Model entries are saved as URLs so they can be downloaded from the model library.
@@ -35,6 +37,8 @@ Both previews have interactive sample tasks and an in-memory store. The previews
 - `packages/planner_ui` contains the screens, editors, and shared Material 3 Expressive theme.
 - `packages/planner_assistant` downloads and runs local GGUF models and supplies its tool definitions.
 - `lib` connects the packages to device storage, dictation, and communication.
+
+The Android Health Connect integration requires Android API 26 or later. Health permissions are requested only after the user enables health context in Tool settings.
 
 To add a device action, register a `DeviceTool` with its fields and review action, then implement its handoff under the same tool name on the supported platforms. The registry supplies the settings switch, assistant tool schema, validation, and review UI.
 

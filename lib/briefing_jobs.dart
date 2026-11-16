@@ -8,6 +8,7 @@ import 'package:planner_assistant/planner_assistant.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
+import 'health_briefing.dart';
 import 'planner_notifications.dart';
 import 'platform_services.dart';
 
@@ -151,6 +152,7 @@ void briefingDispatcher() {
       await BriefingService(
         store: PreferencesBriefingStore(notifications: notifications),
         assistant: assistant,
+        health: LocalHealthBriefing(),
       ).refresh(now, tasks, schedule: schedule);
       return true;
     } catch (error) {
