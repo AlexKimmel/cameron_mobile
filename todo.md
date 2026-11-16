@@ -1,18 +1,8 @@
-- [x] Let users import their own compatible Hugging Face model and manage downloaded models. Here have options for the most command and usefull models for this tool calling.
-- [x] Add more assistant tools, including calendar event reading and task completion actions, with clear user review and permissions.
-- [x] Fix layout and interaction bugs on the Tasks & Tools page, including task filtering, editing, and completion states.
-- [x] Make the daily briefing more reactive to changes in tasks and time of day, and let users provide input to shape the briefing.
-- [x] Improve voice input so the animated listening bubble expands over the tab selectors while recording.
-- [x] Show the recognized spoken text for review after dictation, with clear edit, submit, and retry actions.
-- [x] Improve task list organization with stronger date grouping, overdue indicators, and easier rescheduling.
-- [x] Add clear loading, error, and retry states for model downloads, inference, dictation, and tool handoffs.
-- [x] Improve accessibility with larger tap targets, useful screen reader labels, and reduced-motion support across animated controls.
-- [x] Add recurring tasks with flexible schedules and the option to edit one occurrence or the whole series. Here create tool calls for the local llm.
-- [x] Add notification support. Such that when tasks have exact dates or a new breafing is available notifications are send.
-- [x] Add optional local reminders for tasks and upcoming sessions, with snooze and quiet hours.
-- [x] Show scheduling conflicts and suggest available time slots before moving or adding a session.
-- [x] Add task search across titles and notes, including completed tasks.
-- [x] Add undo for task deletions and assistant-made changes so users can recover from mistakes quickly.
-- [x] Add a local backup and restore flow for tasks and settings, with a preview before importing.
-- [x] Improve first-run onboarding with a sample day, a quick-add action, and the option to set up the assistant later.
-- [x] Add configurable briefing times and an opt-in notification when a new briefing is ready.
+- [ ] Better user input feedback. don't show a popup but rather have the text apear as a chat message in the top right with then the models tool calls under it and the answere to accept or dissmiss. This should be an overlay over the complete screen. 
+- [ ] add animation to the chat overlay. that handle the async calls properly
+- [ ] Integrate with google health connect, and apple health for more information for the brefings
+- [ ] completet tasks and previous task have a visuall bug
+- [ ] remove cards for filtering use a button groupe instead
+- [ ] for all buttons apply m3e design pattern such that selected buttons are curcular rounded and non selected once are square rounded. apply this also to the tool bar
+- [ ] use the `m3e_core` plugin to add the m3e loading indicator for when the ai is loading
+- [ ] use the m3e laoding indicator in the chat overlay for the ai loading between tool calls and answers
