@@ -238,6 +238,31 @@ void main() {
     },
   );
 
+  testWidgets('Dismissing inference ignores its late response', (tester) async {
+    final assistant = _RetryAssistant();
+    await tester.pumpWidget(
+      PlannerApp(store: MemoryTaskStore(), assistant: assistant),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Type a request'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), 'Review my plan');
+    await tester.tap(find.text('Send'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Thinking…'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Dismiss response'));
+    await tester.pumpAndSettle();
+    assistant.first.complete(const AssistantReply(text: 'A late response'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Review assistant response'), findsNothing);
+    expect(find.text('A late response'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('Retry selects a model only after the download succeeds', (
     tester,
   ) async {

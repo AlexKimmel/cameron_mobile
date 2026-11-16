@@ -175,6 +175,7 @@ class _PlannerHomeState extends State<_PlannerHome>
   DateTime? _chatNow;
   String? _chatError;
   bool _chatLoading = false;
+  int _assistantRequestId = 0;
   bool _saving = false;
   double? _progress;
   Timer? _clockRefresh;
@@ -830,6 +831,7 @@ class _PlannerHomeState extends State<_PlannerHome>
       return;
     }
     final now = widget.clock();
+    final requestId = ++_assistantRequestId;
     setState(() {
       _asking = true;
       _generatingResponse = true;
@@ -842,16 +844,16 @@ class _PlannerHomeState extends State<_PlannerHome>
     });
     try {
       await _briefingRun;
-      if (!mounted) return;
+      if (!mounted || requestId != _assistantRequestId) return;
       final offered = await _enabledTools(_toolCatalog);
-      if (!mounted) return;
+      if (!mounted || requestId != _assistantRequestId) return;
       final reply = await widget.assistant.ask(
         prompt,
         tasks: expandTasks(tasks, now),
         now: now,
         deviceTools: offered,
       );
-      if (!mounted) return;
+      if (!mounted || requestId != _assistantRequestId) return;
       if (reply.calls.isEmpty && reply.text.trim().isEmpty) {
         throw StateError('Empty assistant response.');
       }
@@ -860,7 +862,7 @@ class _PlannerHomeState extends State<_PlannerHome>
         _chatLoading = false;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || requestId != _assistantRequestId) return;
       setState(() {
         _chatError = error is FormatException
             ? error.message
@@ -868,7 +870,7 @@ class _PlannerHomeState extends State<_PlannerHome>
         _chatLoading = false;
       });
     } finally {
-      if (mounted) {
+      if (mounted && requestId == _assistantRequestId) {
         setState(() {
           _asking = false;
           _generatingResponse = false;
@@ -879,8 +881,10 @@ class _PlannerHomeState extends State<_PlannerHome>
   }
 
   void _dismissAssistantReview() {
-    if (_asking) return;
+    _assistantRequestId++;
     setState(() {
+      _asking = false;
+      _generatingResponse = false;
       _chatPrompt = null;
       _chatReply = null;
       _chatTasks = null;
@@ -1233,168 +1237,267 @@ class _PlannerHomeState extends State<_PlannerHome>
 
   Widget _assistantOverlay(BuildContext context) {
     final prompt = _chatPrompt;
-    if (prompt == null) return const SizedBox.shrink();
     final palette = context.palette;
     final reply = _chatReply;
     return Positioned.fill(
-      child: Stack(
-        children: [
-          ModalBarrier(color: palette.scrim.withValues(alpha: .42)),
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topRight,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: 520,
-                    maxHeight: MediaQuery.sizeOf(context).height * .82,
-                  ),
-                  child: Material(
-                    color: palette.surfaceContainerHigh,
-                    elevation: 12,
-                    shadowColor: palette.shadow,
-                    borderRadius: BorderRadius.circular(28),
-                    clipBehavior: Clip.antiAlias,
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Review assistant response',
-                                  style: context.type.titleLarge,
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: 'Dismiss response',
-                                onPressed: _asking
-                                    ? null
-                                    : _dismissAssistantReview,
-                                icon: const Icon(Icons.close),
-                              ),
-                            ],
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 240),
+        reverseDuration: const Duration(milliseconds: 180),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: .96, end: 1).animate(animation),
+            child: child,
+          ),
+        ),
+        child: prompt == null
+            ? const SizedBox.expand(key: ValueKey('assistant-overlay-hidden'))
+            : Stack(
+                key: const ValueKey('assistant-overlay-visible'),
+                children: [
+                  ModalBarrier(color: palette.scrim.withValues(alpha: .42)),
+                  SafeArea(
+                    child: Align(
+                      alignment: Alignment.topRight,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: 520,
+                            maxHeight: MediaQuery.sizeOf(context).height * .82,
                           ),
-                          const SizedBox(height: 12),
-                          Align(
-                            alignment: AlignmentDirectional.centerEnd,
-                            child: Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: palette.primaryContainer,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                prompt,
-                                style: context.type.bodyLarge!.copyWith(
-                                  color: palette.onPrimaryContainer,
-                                ),
+                          child: Material(
+                            color: palette.surfaceContainerHigh,
+                            elevation: 12,
+                            shadowColor: palette.shadow,
+                            borderRadius: BorderRadius.circular(28),
+                            clipBehavior: Clip.antiAlias,
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          'Review assistant response',
+                                          style: context.type.titleLarge,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Dismiss response',
+                                        onPressed: _chatLoading || !_asking
+                                            ? _dismissAssistantReview
+                                            : null,
+                                        icon: const Icon(Icons.close),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Align(
+                                    alignment: AlignmentDirectional.centerEnd,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(14),
+                                      decoration: BoxDecoration(
+                                        color: palette.primaryContainer,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        prompt,
+                                        style: context.type.bodyLarge!.copyWith(
+                                          color: palette.onPrimaryContainer,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  AnimatedSize(
+                                    duration: const Duration(milliseconds: 220),
+                                    curve: Curves.easeInOutCubic,
+                                    child: AnimatedSwitcher(
+                                      duration: const Duration(
+                                        milliseconds: 200,
+                                      ),
+                                      switchInCurve: Curves.easeOut,
+                                      switchOutCurve: Curves.easeIn,
+                                      child: _chatLoading || _asking
+                                          ? Row(
+                                              key: ValueKey(
+                                                _asking && !_chatLoading
+                                                    ? 'applying'
+                                                    : 'thinking',
+                                              ),
+                                              children: [
+                                                const SizedBox.square(
+                                                  dimension: 18,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                      ),
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Text(
+                                                  _asking && !_chatLoading
+                                                      ? 'Applying approved actions…'
+                                                      : 'Thinking…',
+                                                  style:
+                                                      context.type.bodyMedium,
+                                                ),
+                                              ],
+                                            )
+                                          : const SizedBox.shrink(
+                                              key: ValueKey('assistant-idle'),
+                                            ),
+                                    ),
+                                  ),
+                                  if (reply != null)
+                                    AnimatedSwitcher(
+                                      duration: const Duration(
+                                        milliseconds: 260,
+                                      ),
+                                      switchInCurve: Curves.easeOutCubic,
+                                      switchOutCurve: Curves.easeInCubic,
+                                      transitionBuilder: (child, animation) =>
+                                          FadeTransition(
+                                            opacity: animation,
+                                            child: SlideTransition(
+                                              position: Tween<Offset>(
+                                                begin: const Offset(0, .06),
+                                                end: Offset.zero,
+                                              ).animate(animation),
+                                              child: child,
+                                            ),
+                                          ),
+                                      child: Column(
+                                        key: ValueKey(reply),
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (reply.calls.isNotEmpty) ...[
+                                            const SizedBox(height: 18),
+                                            Text(
+                                              'Proposed actions',
+                                              style: context.type.titleSmall,
+                                            ),
+                                            const SizedBox(height: 6),
+                                            for (final (index, call)
+                                                in reply.calls.indexed)
+                                              TweenAnimationBuilder<double>(
+                                                key: ValueKey(
+                                                  '${call.name}-$index',
+                                                ),
+                                                tween: Tween(begin: 0, end: 1),
+                                                duration: Duration(
+                                                  milliseconds:
+                                                      220 + index * 70,
+                                                ),
+                                                curve: Curves.easeOutCubic,
+                                                builder:
+                                                    (
+                                                      context,
+                                                      value,
+                                                      child,
+                                                    ) => Opacity(
+                                                      opacity: value,
+                                                      child:
+                                                          Transform.translate(
+                                                            offset: Offset(
+                                                              0,
+                                                              10 * (1 - value),
+                                                            ),
+                                                            child: child,
+                                                          ),
+                                                    ),
+                                                child: ListTile(
+                                                  contentPadding:
+                                                      EdgeInsets.zero,
+                                                  leading: Icon(
+                                                    Icons.build_outlined,
+                                                    color: palette.secondary,
+                                                  ),
+                                                  title: Text(
+                                                    call.name.replaceAll(
+                                                      '_',
+                                                      ' ',
+                                                    ),
+                                                  ),
+                                                  subtitle: SelectableText(
+                                                    call.arguments.toString(),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                          if (reply.text.trim().isNotEmpty) ...[
+                                            const SizedBox(height: 10),
+                                            Align(
+                                              alignment: AlignmentDirectional
+                                                  .centerStart,
+                                              child: Container(
+                                                padding: const EdgeInsets.all(
+                                                  14,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: palette
+                                                      .surfaceContainerLowest,
+                                                  borderRadius:
+                                                      BorderRadius.circular(20),
+                                                ),
+                                                child: SelectableText(
+                                                  reply.text.trim(),
+                                                  style: context.type.bodyLarge,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  if (_chatError case final error?) ...[
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      error,
+                                      style: context.type.bodyMedium!.copyWith(
+                                        color: palette.error,
+                                      ),
+                                    ),
+                                  ],
+                                  if (!_chatLoading && !_asking) ...[
+                                    const SizedBox(height: 18),
+                                    Wrap(
+                                      alignment: WrapAlignment.end,
+                                      spacing: 8,
+                                      children: [
+                                        if (_chatError != null)
+                                          TextButton(
+                                            onPressed: () => _ask(prompt),
+                                            child: const Text('Retry'),
+                                          ),
+                                        TextButton(
+                                          onPressed: _dismissAssistantReview,
+                                          child: const Text('Dismiss'),
+                                        ),
+                                        if (reply != null)
+                                          FilledButton(
+                                            onPressed: _acceptAssistantReview,
+                                            child: const Text('Accept'),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                           ),
-                          if (_chatLoading || _asking) ...[
-                            const SizedBox(height: 18),
-                            Row(
-                              children: [
-                                const SizedBox.square(
-                                  dimension: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  _asking && !_chatLoading
-                                      ? 'Applying approved actions…'
-                                      : 'Thinking…',
-                                  style: context.type.bodyMedium,
-                                ),
-                              ],
-                            ),
-                          ],
-                          if (reply != null && reply.calls.isNotEmpty) ...[
-                            const SizedBox(height: 18),
-                            Text(
-                              'Proposed actions',
-                              style: context.type.titleSmall,
-                            ),
-                            const SizedBox(height: 6),
-                            for (final call in reply.calls)
-                              ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                leading: Icon(
-                                  Icons.build_outlined,
-                                  color: palette.secondary,
-                                ),
-                                title: Text(call.name.replaceAll('_', ' ')),
-                                subtitle: SelectableText(
-                                  call.arguments.toString(),
-                                ),
-                              ),
-                          ],
-                          if (reply != null &&
-                              reply.text.trim().isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            Align(
-                              alignment: AlignmentDirectional.centerStart,
-                              child: Container(
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  color: palette.surfaceContainerLowest,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: SelectableText(
-                                  reply.text.trim(),
-                                  style: context.type.bodyLarge,
-                                ),
-                              ),
-                            ),
-                          ],
-                          if (_chatError case final error?) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              error,
-                              style: context.type.bodyMedium!.copyWith(
-                                color: palette.error,
-                              ),
-                            ),
-                          ],
-                          if (!_chatLoading && !_asking) ...[
-                            const SizedBox(height: 18),
-                            Wrap(
-                              alignment: WrapAlignment.end,
-                              spacing: 8,
-                              children: [
-                                if (_chatError != null)
-                                  TextButton(
-                                    onPressed: () => _ask(prompt),
-                                    child: const Text('Retry'),
-                                  ),
-                                TextButton(
-                                  onPressed: _dismissAssistantReview,
-                                  child: const Text('Dismiss'),
-                                ),
-                                if (reply != null)
-                                  FilledButton(
-                                    onPressed: _acceptAssistantReview,
-                                    child: const Text('Accept'),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
               ),
-            ),
-          ),
-        ],
       ),
     );
   }
