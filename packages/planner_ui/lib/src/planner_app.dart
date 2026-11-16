@@ -169,6 +169,12 @@ class _PlannerHomeState extends State<_PlannerHome>
   bool _restoringBackup = false;
   bool _asking = false;
   bool _generatingResponse = false;
+  String? _chatPrompt;
+  AssistantReply? _chatReply;
+  List<PlannerTask>? _chatTasks;
+  DateTime? _chatNow;
+  String? _chatError;
+  bool _chatLoading = false;
   bool _saving = false;
   double? _progress;
   Timer? _clockRefresh;
@@ -827,8 +833,13 @@ class _PlannerHomeState extends State<_PlannerHome>
     setState(() {
       _asking = true;
       _generatingResponse = true;
+      _chatPrompt = prompt;
+      _chatReply = null;
+      _chatTasks = tasks;
+      _chatNow = now;
+      _chatError = null;
+      _chatLoading = true;
     });
-    var generated = false;
     try {
       await _briefingRun;
       if (!mounted) return;
@@ -844,8 +855,50 @@ class _PlannerHomeState extends State<_PlannerHome>
       if (reply.calls.isEmpty && reply.text.trim().isEmpty) {
         throw StateError('Empty assistant response.');
       }
-      generated = true;
-      setState(() => _generatingResponse = false);
+      setState(() {
+        _chatReply = reply;
+        _chatLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _chatError = error is FormatException
+            ? error.message
+            : 'Could not generate an assistant response.';
+        _chatLoading = false;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _asking = false;
+          _generatingResponse = false;
+        });
+        unawaited(_refreshBriefing());
+      }
+    }
+  }
+
+  void _dismissAssistantReview() {
+    if (_asking) return;
+    setState(() {
+      _chatPrompt = null;
+      _chatReply = null;
+      _chatTasks = null;
+      _chatNow = null;
+      _chatError = null;
+      _chatLoading = false;
+    });
+  }
+
+  Future<void> _acceptAssistantReview() async {
+    final reply = _chatReply;
+    final tasks = _chatTasks;
+    final now = _chatNow;
+    if (reply == null || tasks == null || now == null || _asking) return;
+    setState(() => _asking = true);
+    try {
+      final offered = await _enabledTools(_toolCatalog);
+      if (!mounted) return;
       final enabled = await _enabledTools(
         offered.where(
           (tool) => reply.calls.any((call) => call.name == tool.name),
@@ -860,7 +913,24 @@ class _PlannerHomeState extends State<_PlannerHome>
         deviceTools: enabled,
         reviewSchedule: _pickScheduleTime,
       );
-      if (!mounted || result.cancelled) return;
+      if (!mounted) return;
+      if (result.cancelled) {
+        setState(() {
+          _chatPrompt = null;
+          _chatReply = null;
+          _chatTasks = null;
+          _chatNow = null;
+          _chatError = null;
+        });
+        return;
+      }
+      setState(() {
+        _chatPrompt = null;
+        _chatReply = null;
+        _chatTasks = null;
+        _chatNow = null;
+        _chatError = null;
+      });
       _acceptToolResult(result);
       final activityMessage = result.activities.join('\n');
       if (result.drafts.isNotEmpty) {
@@ -886,35 +956,18 @@ class _PlannerHomeState extends State<_PlannerHome>
         if (!_offerTaskUndo(tasks, result.tasks, activityMessage)) {
           _message(activityMessage);
         }
-      } else {
-        await showPlannerSheet<void>(
-          context,
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [SelectableText(reply.text)],
-          ),
-        );
       }
     } catch (error) {
-      if (!mounted) return;
-      if (!generated) {
-        _message(
-          'Could not generate an assistant response.',
-          action: SnackBarAction(label: 'Retry', onPressed: () => _ask(prompt)),
-        );
-      } else {
-        _message(
-          error is FormatException
+      if (mounted) {
+        setState(() {
+          _chatError = error is FormatException
               ? error.message
-              : 'Could not apply the assistant response.',
-        );
+              : 'Could not apply the assistant response.';
+        });
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _asking = false;
-          _generatingResponse = false;
-        });
+        setState(() => _asking = false);
         unawaited(_refreshBriefing());
       }
     }
@@ -1178,12 +1231,181 @@ class _PlannerHomeState extends State<_PlannerHome>
     );
   }
 
+  Widget _assistantOverlay(BuildContext context) {
+    final prompt = _chatPrompt;
+    if (prompt == null) return const SizedBox.shrink();
+    final palette = context.palette;
+    final reply = _chatReply;
+    return Positioned.fill(
+      child: Stack(
+        children: [
+          ModalBarrier(color: palette.scrim.withValues(alpha: .42)),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: 520,
+                    maxHeight: MediaQuery.sizeOf(context).height * .82,
+                  ),
+                  child: Material(
+                    color: palette.surfaceContainerHigh,
+                    elevation: 12,
+                    shadowColor: palette.shadow,
+                    borderRadius: BorderRadius.circular(28),
+                    clipBehavior: Clip.antiAlias,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Review assistant response',
+                                  style: context.type.titleLarge,
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: 'Dismiss response',
+                                onPressed: _asking
+                                    ? null
+                                    : _dismissAssistantReview,
+                                icon: const Icon(Icons.close),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: palette.primaryContainer,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                prompt,
+                                style: context.type.bodyLarge!.copyWith(
+                                  color: palette.onPrimaryContainer,
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (_chatLoading || _asking) ...[
+                            const SizedBox(height: 18),
+                            Row(
+                              children: [
+                                const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  _asking && !_chatLoading
+                                      ? 'Applying approved actions…'
+                                      : 'Thinking…',
+                                  style: context.type.bodyMedium,
+                                ),
+                              ],
+                            ),
+                          ],
+                          if (reply != null && reply.calls.isNotEmpty) ...[
+                            const SizedBox(height: 18),
+                            Text(
+                              'Proposed actions',
+                              style: context.type.titleSmall,
+                            ),
+                            const SizedBox(height: 6),
+                            for (final call in reply.calls)
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: Icon(
+                                  Icons.build_outlined,
+                                  color: palette.secondary,
+                                ),
+                                title: Text(call.name.replaceAll('_', ' ')),
+                                subtitle: SelectableText(
+                                  call.arguments.toString(),
+                                ),
+                              ),
+                          ],
+                          if (reply != null &&
+                              reply.text.trim().isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: palette.surfaceContainerLowest,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: SelectableText(
+                                  reply.text.trim(),
+                                  style: context.type.bodyLarge,
+                                ),
+                              ),
+                            ),
+                          ],
+                          if (_chatError case final error?) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              error,
+                              style: context.type.bodyMedium!.copyWith(
+                                color: palette.error,
+                              ),
+                            ),
+                          ],
+                          if (!_chatLoading && !_asking) ...[
+                            const SizedBox(height: 18),
+                            Wrap(
+                              alignment: WrapAlignment.end,
+                              spacing: 8,
+                              children: [
+                                if (_chatError != null)
+                                  TextButton(
+                                    onPressed: () => _ask(prompt),
+                                    child: const Text('Retry'),
+                                  ),
+                                TextButton(
+                                  onPressed: _dismissAssistantReview,
+                                  child: const Text('Dismiss'),
+                                ),
+                                if (reply != null)
+                                  FilledButton(
+                                    onPressed: _acceptAssistantReview,
+                                    child: const Text('Accept'),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final voiceAvailable =
         widget.dictation != null && widget.assistant.supported;
     final busy =
         _asking ||
+        _chatPrompt != null ||
         _startingVoice ||
         _installing ||
         _managingModels ||
@@ -1306,6 +1528,7 @@ class _PlannerHomeState extends State<_PlannerHome>
                     ),
                   ),
                 ),
+                _assistantOverlay(context),
               ],
             ),
           ),

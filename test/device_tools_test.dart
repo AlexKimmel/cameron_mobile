@@ -31,6 +31,8 @@ void main() {
       await tester.enterText(find.byType(TextFormField), 'Draft an email');
       await tester.tap(find.text('Send'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Accept'));
+      await tester.pumpAndSettle();
     }
 
     Future<void> openSettings() async {
@@ -41,9 +43,15 @@ void main() {
     final emailSwitch = find.widgetWithText(SwitchListTile, 'Email');
 
     await requestDraft();
+    expect(find.text('Draft an email'), findsOneWidget);
+    expect(find.text('Proposed actions'), findsOneWidget);
     expect(assistant.offeredTools, isEmpty);
     expect(find.text('Review actions'), findsNothing);
     expect(opened, isEmpty);
+    if (find.text('Dismiss').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Dismiss'));
+      await tester.pumpAndSettle();
+    }
 
     await openSettings();
     expect(tester.widget<SwitchListTile>(emailSwitch).value, isFalse);
@@ -100,6 +108,14 @@ void main() {
           toolStore: settings,
         ),
       );
+      await tester.pumpAndSettle();
+
+      await _askWithoutAccept(tester, 'Mark my checkup task complete');
+      expect(find.text('Proposed actions'), findsOneWidget);
+      expect(find.text('complete task'), findsOneWidget);
+      expect(find.text('Mark complete'), findsNothing);
+      expect((await store.read()).single.done, isFalse);
+      await tester.tap(find.text('Dismiss'));
       await tester.pumpAndSettle();
 
       await _ask(tester, 'Mark my checkup task complete');
@@ -216,6 +232,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(assistant.prompts, ['Review my plan', 'Review my plan']);
       expect(find.text('Your plan is clear.'), findsOneWidget);
+      await tester.tap(find.text('Accept'));
+      await tester.pumpAndSettle();
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
@@ -293,6 +311,12 @@ class _ToolStore implements DeviceToolStore {
 }
 
 Future<void> _ask(WidgetTester tester, String prompt) async {
+  await _askWithoutAccept(tester, prompt);
+  await tester.tap(find.text('Accept'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _askWithoutAccept(WidgetTester tester, String prompt) async {
   await tester.tap(find.byTooltip('Type a request'));
   await tester.pumpAndSettle();
   await tester.enterText(find.byType(TextFormField), prompt);
