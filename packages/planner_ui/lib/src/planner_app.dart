@@ -514,6 +514,7 @@ class _PlannerHomeState extends State<_PlannerHome>
           const SizedBox(height: 16),
           M3EButton.filled(
             onPressed: () => Navigator.pop(context, true),
+            shape: M3EButtonShape.square,
             icon: const Icon(Icons.download),
             label: const Text('Download'),
           ),
@@ -1194,6 +1195,7 @@ class _PlannerHomeState extends State<_PlannerHome>
           ? Center(
               child: M3EButton.tonal(
                 onPressed: _read,
+                shape: M3EButtonShape.square,
                 label: const Text('Retry loading tasks'),
               ),
             )
@@ -1296,12 +1298,15 @@ class _PlannerHomeState extends State<_PlannerHome>
                                           style: context.type.titleLarge,
                                         ),
                                       ),
-                                      IconButton(
+                                      M3EIconButton(
+                                        variant: M3EIconButtonVariant.standard,
+                                        shape: M3EIconButtonShapeVariant.square,
+                                        icon: const Icon(Icons.close),
+                                        semanticLabel: 'Dismiss response',
                                         tooltip: 'Dismiss response',
                                         onPressed: _chatLoading || !_asking
                                             ? _dismissAssistantReview
                                             : null,
-                                        icon: const Icon(Icons.close),
                                       ),
                                     ],
                                   ),
@@ -1556,7 +1561,12 @@ class _PlannerHomeState extends State<_PlannerHome>
                             ),
                           ),
                           if (widget.assistant.supported)
-                            IconButton(
+                            M3EIconButton(
+                              variant: M3EIconButtonVariant.standard,
+                              shape: M3EIconButtonShapeVariant.square,
+                              icon: const Icon(Icons.keyboard_outlined),
+                              semanticLabel: 'Type a request',
+                              tooltip: 'Type a request',
                               onPressed:
                                   busy ||
                                       _checking ||
@@ -1565,25 +1575,36 @@ class _PlannerHomeState extends State<_PlannerHome>
                                       _tasks == null
                                   ? null
                                   : _typePrompt,
-                              icon: const Icon(Icons.keyboard_outlined),
-                              tooltip: 'Type a request',
                             ),
                           if (widget.modelLibrary != null)
-                            IconButton(
+                            M3EIconButton(
+                              variant: M3EIconButtonVariant.standard,
+                              shape: M3EIconButtonShapeVariant.square,
+                              icon: const Icon(Icons.memory),
+                              semanticLabel: 'Assistant models',
+                              tooltip: 'Assistant models',
                               onPressed: busy || _checking || _listening
                                   ? null
                                   : _showDownload,
-                              icon: const Icon(Icons.memory),
-                              tooltip: 'Assistant models',
                             ),
-                          IconButton(
+                          M3EIconButton(
+                            variant: M3EIconButtonVariant.standard,
+                            shape: M3EIconButtonShapeVariant.square,
+                            icon: const Icon(Icons.settings_outlined),
+                            semanticLabel: 'Tool settings',
+                            tooltip: 'Tool settings',
                             onPressed: busy || _listening
                                 ? null
                                 : _showToolSettings,
-                            icon: const Icon(Icons.settings_outlined),
-                            tooltip: 'Tool settings',
                           ),
-                          IconButton(
+                          M3EIconButton(
+                            variant: M3EIconButtonVariant.standard,
+                            shape: M3EIconButtonShapeVariant.square,
+                            icon: const Icon(Icons.add),
+                            semanticLabel: _tab == 0
+                                ? 'Add session'
+                                : 'Add task',
+                            tooltip: _tab == 0 ? 'Add session' : 'Add task',
                             onPressed:
                                 _tasks == null ||
                                     _asking ||
@@ -1593,8 +1614,6 @@ class _PlannerHomeState extends State<_PlannerHome>
                                     _restoringBackup
                                 ? null
                                 : () => _edit(timed: _tab == 0),
-                            icon: const Icon(Icons.add),
-                            tooltip: _tab == 0 ? 'Add session' : 'Add task',
                           ),
                         ],
                       ),

@@ -26,7 +26,7 @@ void main() {
     await tester.pumpAndSettle();
 
     Future<void> requestDraft() async {
-      await tester.tap(find.byTooltip('Type a request'));
+      await tester.tap(find.bySemanticsLabel('Type a request'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField), 'Draft an email');
       await tester.tap(find.text('Send'));
@@ -36,7 +36,7 @@ void main() {
     }
 
     Future<void> openSettings() async {
-      await tester.tap(find.byTooltip('Tool settings'));
+      await tester.tap(find.bySemanticsLabel('Tool settings'));
       await tester.pumpAndSettle();
     }
 
@@ -214,7 +214,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Type a request'));
+      await tester.tap(find.bySemanticsLabel('Type a request'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField), 'Review my plan');
       await tester.tap(find.text('Send'));
@@ -245,7 +245,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Type a request'));
+    await tester.tap(find.bySemanticsLabel('Type a request'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), 'Review my plan');
     await tester.tap(find.text('Send'));
@@ -253,7 +253,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Thinking…'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Dismiss response'));
+    await tester.tap(find.bySemanticsLabel('Dismiss response'));
     await tester.pumpAndSettle();
     assistant.first.complete(const AssistantReply(text: 'A late response'));
     await tester.pumpAndSettle();
@@ -275,7 +275,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Assistant models'));
+    await tester.tap(find.bySemanticsLabel('Assistant models'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Download'));
     await tester.pump();
@@ -342,7 +342,7 @@ Future<void> _ask(WidgetTester tester, String prompt) async {
 }
 
 Future<void> _askWithoutAccept(WidgetTester tester, String prompt) async {
-  await tester.tap(find.byTooltip('Type a request'));
+  await tester.tap(find.bySemanticsLabel('Type a request'));
   await tester.pumpAndSettle();
   await tester.enterText(find.byType(TextFormField), prompt);
   await tester.tap(find.text('Send'));

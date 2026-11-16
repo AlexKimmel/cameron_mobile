@@ -97,7 +97,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Tool settings'));
+    await tester.tap(find.bySemanticsLabel('Tool settings'));
     await tester.pumpAndSettle();
 
     final tile = find.widgetWithText(SwitchListTile, 'Scheduled tasks');
@@ -152,7 +152,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Add task'));
+    await tester.tap(find.bySemanticsLabel('Add task'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField).first, 'Prepare notes');
     await tester.ensureVisible(find.text('No reminder'));

@@ -113,7 +113,9 @@ void main() {
     final futureDay = localizations.formatFullDate(DateTime(2026, 11, 17));
     expect(find.text(futureDay), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Reschedule Schedule the follow-up'));
+    await tester.tap(
+      find.bySemanticsLabel('Reschedule Schedule the follow-up'),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('17'));
     await tester.tap(find.text('OK'));
@@ -144,7 +146,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Add task'));
+      await tester.tap(find.bySemanticsLabel('Add task'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField).first, 'Pay rent');
       final frequency = find.text('Does not repeat');
@@ -215,7 +217,7 @@ void main() {
         PlannerApp(store: store, assistant: _OffAssistant(), clock: () => now),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Add session'));
+      await tester.tap(find.bySemanticsLabel('Add session'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byType(TextFormField).first,

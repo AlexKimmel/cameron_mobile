@@ -15,11 +15,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Daily Briefing'), findsOneWidget);
 
-    expect(find.text('Tasks & Tools'), findsNothing);
-    await tester.tap(find.bySemanticsLabel('Tasks & Tools'));
+    expect(find.text('Tasks'), findsNothing);
+    await tester.tap(find.bySemanticsLabel('Tasks'));
     await tester.pumpAndSettle();
     expect(find.text('Today'), findsOneWidget);
-    expect(find.text('Tasks & Tools').hitTestable(), findsOneWidget);
+    expect(find.text('Tasks').hitTestable().last, findsOneWidget);
     expect(find.text('Briefing'), findsNothing);
     expect(find.text('Review design tokens with team'), findsOneWidget);
 
@@ -27,7 +27,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Verify contrast for surface tint'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Complete Review design tokens with team'));
+    await tester.tap(
+      find.bySemanticsLabel('Complete Review design tokens with team'),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Review design tokens with team'), findsNothing);
     expect(find.text('Completed · 3'), findsOneWidget);
@@ -44,7 +46,7 @@ void main() {
 
     await tester.pumpWidget(tasksPreview());
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Add task'));
+    await tester.tap(find.bySemanticsLabel('Add task'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Task name'),
@@ -117,13 +119,15 @@ void main() {
     expect(original, findsOneWidget);
     expect(find.text('Renamed weekly sync'), findsNothing);
 
-    final reopen = find.byTooltip('Reopen Weekly sync with Core Engineering');
+    final reopen = find.bySemanticsLabel(
+      'Reopen Weekly sync with Core Engineering',
+    );
     await tester.ensureVisible(reopen);
     await tester.tap(reopen);
     await tester.pumpAndSettle();
     expect(find.text('Completed · 1'), findsOneWidget);
     expect(
-      find.byTooltip('Complete Weekly sync with Core Engineering'),
+      find.bySemanticsLabel('Complete Weekly sync with Core Engineering'),
       findsOneWidget,
     );
     await tester.pumpWidget(const SizedBox.shrink());
@@ -142,7 +146,9 @@ void main() {
       expect(find.text('Document migration checklist'), findsOneWidget);
       expect(find.text('Nov 14, 2026'), findsOneWidget);
 
-      final reopen = find.byTooltip('Reopen Document migration checklist');
+      final reopen = find.bySemanticsLabel(
+        'Reopen Document migration checklist',
+      );
       await tester.ensureVisible(reopen);
       await tester.tap(reopen);
       await tester.pumpAndSettle();
@@ -172,7 +178,7 @@ void main() {
     await tester.enterText(search, 'nonexistent phrase');
     await tester.pumpAndSettle();
     expect(find.text('No tasks match your search'), findsOneWidget);
-    await tester.tap(find.byTooltip('Clear task search'));
+    await tester.tap(find.bySemanticsLabel('Clear task search'));
     await tester.pumpAndSettle();
     expect(find.text('Review design tokens with team'), findsOneWidget);
     expect(find.text('No tasks match your search'), findsNothing);
@@ -196,7 +202,7 @@ void main() {
 
       await tester.pumpWidget(tasksPreview());
       await tester.pumpAndSettle();
-      final reschedule = find.byTooltip(
+      final reschedule = find.bySemanticsLabel(
         'Reschedule Review design tokens with team',
       );
       expect(tester.getSize(reschedule).shortestSide, greaterThanOrEqualTo(48));

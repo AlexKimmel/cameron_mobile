@@ -271,6 +271,7 @@ class _TaskEditorState extends State<TaskEditor> {
           children: [
             M3EButton.tonal(
               onPressed: _date,
+              shape: M3EButtonShape.square,
               icon: const Icon(Icons.today_outlined),
               label: Text(
                 MaterialLocalizations.of(context).formatShortDate(_day),
@@ -278,12 +279,16 @@ class _TaskEditorState extends State<TaskEditor> {
             ),
             M3EButton.tonal(
               onPressed: _startTime,
+              shape: M3EButtonShape.square,
               icon: const Icon(Icons.schedule),
               label: Text(_time?.format(context) ?? 'Start time'),
             ),
             if (_time != null && !widget.timed)
-              IconButton(
+              M3EIconButton(
+                variant: M3EIconButtonVariant.standard,
+                shape: M3EIconButtonShapeVariant.square,
                 onPressed: () => setState(() => _time = null),
+                semanticLabel: 'Clear start time',
                 tooltip: 'Clear start time',
                 icon: const Icon(Icons.close),
               ),
@@ -334,13 +339,18 @@ class _TaskEditorState extends State<TaskEditor> {
           runSpacing: 8,
           children: [
             if (widget.task != null)
-              M3EButton.text(onPressed: _delete, child: Text('Delete $_kind')),
+              M3EButton.text(
+                onPressed: _delete,
+                shape: M3EButtonShape.square,
+                child: Text('Delete $_kind'),
+              ),
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
             M3EButton.filled(
               onPressed: _checkingSchedule ? null : _save,
+              shape: M3EButtonShape.square,
               label: Text('Save $_kind'),
             ),
           ],
@@ -400,24 +410,33 @@ class _TaskEditorState extends State<TaskEditor> {
             },
           ),
           if (frequency == RepeatFrequency.weekly)
-            Wrap(
-              spacing: 6,
-              children: [
+            M3EButtonGroup(
+              semanticLabel: 'Repeat days',
+              multiSelect: true,
+              selectionRequired: true,
+              selectedIndices: _weekdays.isEmpty
+                  ? {_day.weekday - 1}
+                  : _weekdays.map((day) => day - 1).toSet(),
+              onSelectedIndicesChanged: (indices) {
+                if (indices.isEmpty) return;
+                setState(() {
+                  _weekdays
+                    ..clear()
+                    ..addAll(indices.map((index) => index + 1));
+                });
+              },
+              decoration: M3EButtonDecoration(
+                minimumSize: const Size.square(plannerTapTarget),
+                tapTargetSize: MaterialTapTargetSize.padded,
+                selectedRadius: plannerTapTarget / 2,
+                unselectedRadius: 12,
+              ),
+              actions: [
                 for (var day = DateTime.monday; day <= DateTime.sunday; day++)
-                  FilterChip(
+                  M3EButtonGroupAction(
                     label: Text(weekdays[day - 1].substring(0, 3)),
+                    semanticLabel: weekdays[day - 1],
                     tooltip: weekdays[day - 1],
-                    selected: _weekdays.isEmpty
-                        ? day == _day.weekday
-                        : _weekdays.contains(day),
-                    onSelected: (selected) => setState(() {
-                      if (_weekdays.isEmpty) _weekdays.add(_day.weekday);
-                      if (selected) {
-                        _weekdays.add(day);
-                      } else if (_weekdays.length > 1) {
-                        _weekdays.remove(day);
-                      }
-                    }),
                   ),
               ],
             ),
@@ -434,11 +453,14 @@ class _TaskEditorState extends State<TaskEditor> {
                 ),
               ),
               if (_repeatUntil != null)
-                IconButton(
+                M3EIconButton(
+                  variant: M3EIconButtonVariant.standard,
+                  shape: M3EIconButtonShapeVariant.square,
                   onPressed: () => setState(() {
                     _repeatUntil = null;
                     _badEndDate = false;
                   }),
+                  semanticLabel: 'Clear repeat end date',
                   tooltip: 'Clear repeat end date',
                   icon: const Icon(Icons.close),
                 ),
@@ -646,6 +668,7 @@ class _PromptSheetState extends State<PromptSheet> {
                     Navigator.pop(context, SubmitPrompt(_prompt.text.trim()));
                   }
                 },
+                shape: M3EButtonShape.square,
                 label: Text(reviewing ? 'Submit' : 'Send'),
               ),
             ],
@@ -739,6 +762,7 @@ class _DeviceToolReviewSheetState extends State<DeviceToolReviewSheet> {
                     ),
                   M3EButton.filled(
                     onPressed: _pending == null ? () => _open(index) : null,
+                    shape: M3EButtonShape.square,
                     label: Text(
                       _pending == index
                           ? 'Working…'

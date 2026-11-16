@@ -109,8 +109,11 @@ class TasksScreen extends StatelessWidget {
             prefixIcon: const Icon(Icons.search),
             suffixIcon: query.isEmpty
                 ? null
-                : IconButton(
+                : M3EIconButton(
+                    variant: M3EIconButtonVariant.standard,
+                    shape: M3EIconButtonShapeVariant.square,
                     onPressed: search.clear,
+                    semanticLabel: 'Clear task search',
                     tooltip: 'Clear task search',
                     icon: const Icon(Icons.clear),
                   ),
@@ -127,6 +130,8 @@ class TasksScreen extends StatelessWidget {
           },
           decoration: M3EButtonDecoration(
             minimumSize: const Size(0, plannerTapTarget),
+            selectedRadius: plannerTapTarget / 2,
+            unselectedRadius: 12,
             tapTargetSize: MaterialTapTargetSize.padded,
             animationDuration: context.reduceMotion ? Duration.zero : null,
             textStyle: context.type.labelMedium,
@@ -253,8 +258,12 @@ class TasksScreen extends StatelessWidget {
           for (final task in tasks)
             ListTile(
               key: ValueKey('completed-${task.id}'),
-              leading: IconButton.filled(
+              leading: M3EIconButton(
+                variant: M3EIconButtonVariant.filled,
+                shape: M3EIconButtonShapeVariant.square,
+                isSelected: true,
                 icon: const Icon(Icons.check, size: 16),
+                semanticLabel: 'Reopen ${task.title}',
                 tooltip: 'Reopen ${task.title}',
                 onPressed: canEdit ? () => onToggle(task) : null,
               ),
@@ -302,14 +311,14 @@ class _TaskCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              IconButton(
+              M3EIconButton(
+                variant: M3EIconButtonVariant.standard,
+                shape: M3EIconButtonShapeVariant.square,
+                isSelected: false,
+                icon: const Icon(Icons.circle_outlined),
+                semanticLabel: 'Complete ${task.title}',
                 tooltip: 'Complete ${task.title}',
                 onPressed: onToggle,
-                icon: Icon(
-                  Icons.circle_outlined,
-                  color: palette.secondary,
-                  size: 24,
-                ),
               ),
               Expanded(
                 child: Semantics(
@@ -398,10 +407,13 @@ class _TaskCard extends StatelessWidget {
                   ),
                 ),
               ),
-              IconButton(
+              M3EIconButton(
+                variant: M3EIconButtonVariant.standard,
+                shape: M3EIconButtonShapeVariant.square,
+                icon: const Icon(Icons.event_outlined),
+                semanticLabel: 'Reschedule ${task.title}',
                 tooltip: 'Reschedule ${task.title}',
                 onPressed: onReschedule,
-                icon: const Icon(Icons.event_outlined),
               ),
             ],
           ),

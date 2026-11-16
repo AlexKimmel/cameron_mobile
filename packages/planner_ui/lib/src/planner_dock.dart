@@ -82,7 +82,7 @@ class PlannerDock extends StatelessWidget {
                                 : null,
                             textStyle: context.type.labelMedium,
                             selectedRadius: 32,
-                            unselectedRadius: 32,
+                            unselectedRadius: 12,
                           ),
                           actions: [
                             for (final (index, item) in const [
@@ -176,7 +176,7 @@ class _VoiceButton extends StatelessWidget {
           color: listening ? palette.primary : palette.secondaryContainer,
           elevation: 4,
           shadowColor: palette.shadow,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(listening ? 32.5 : 12),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onPressed,

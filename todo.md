@@ -3,6 +3,6 @@
 - [x] Integrate with google health connect, and apple health for more information for the brefings
 - [x] completet tasks and previous task have a visuall bug
 - [x] remove cards for filtering use a button groupe instead
-- [ ] for all buttons apply m3e design pattern such that selected buttons are curcular rounded and non selected once are square rounded. apply this also to the tool bar
+- [x] for all buttons apply m3e design pattern such that selected buttons are curcular rounded and non selected once are square rounded. apply this also to the tool bar
 - [ ] use the `m3e_core` plugin to add the m3e loading indicator for when the ai is loading
 - [ ] use the m3e laoding indicator in the chat overlay for the ai loading between tool calls and answers

@@ -73,7 +73,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Tool settings'));
+      await tester.tap(find.bySemanticsLabel('Tool settings'));
       await tester.pumpAndSettle();
 
       final import = find.text('Import backup');

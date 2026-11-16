@@ -78,7 +78,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(assistant.prompts, isEmpty);
     final initialSchedules = schedules;
-    await tester.tap(find.byTooltip('Tool settings'));
+    await tester.tap(find.bySemanticsLabel('Tool settings'));
     await tester.pumpAndSettle();
     final edit = find.text('Edit briefing times');
     await tester.scrollUntilVisible(edit.hitTestable(), 200);
@@ -189,7 +189,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Tool settings'));
+    await tester.tap(find.bySemanticsLabel('Tool settings'));
     await tester.pumpAndSettle();
 
     final healthSwitch = find.widgetWithText(
@@ -240,9 +240,9 @@ void main() {
       expect(await briefing.readFocus(), 'Highlight completed work');
       expect(find.text('Briefing 2.'), findsOneWidget);
 
-      await tester.tap(find.bySemanticsLabel('Tasks & Tools'));
+      await tester.tap(find.bySemanticsLabel('Tasks'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Complete Design review'));
+      await tester.tap(find.bySemanticsLabel('Complete Design review'));
       await tester.pumpAndSettle();
       await tester.tap(find.bySemanticsLabel('Briefing'));
       await tester.pumpAndSettle();
