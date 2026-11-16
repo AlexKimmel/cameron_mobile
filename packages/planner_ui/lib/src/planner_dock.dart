@@ -32,11 +32,7 @@ class PlannerDock extends StatelessWidget {
         ? palette.surfaceContainerHighest
         : palette.inverseSurface;
     final dockInk = dark ? palette.onSurface : palette.onInverseSurface;
-    final selection = Color.alphaBlend(
-      dockInk.withValues(alpha: .14),
-      dockColor,
-    );
-    const voiceSize = 56.0;
+    const voiceSize = 65.0;
     final showsVoice = onVoice != null || listening || busy;
     return Stack(
       clipBehavior: Clip.none,
@@ -60,7 +56,7 @@ class PlannerDock extends StatelessWidget {
                         padding: const EdgeInsets.all(5),
                         child: M3EButtonGroup(
                           semanticLabel: 'Planner sections',
-                          size: M3EButtonSize.sm,
+                          size: M3EButtonSize.md,
                           selectedIndex: tab,
                           selectionRequired: true,
                           onSelectedIndexChanged: (index) {
@@ -69,7 +65,7 @@ class PlannerDock extends StatelessWidget {
                           decoration: M3EButtonDecoration(
                             backgroundColor: WidgetStateProperty.resolveWith(
                               (states) => states.contains(WidgetState.selected)
-                                  ? selection
+                                  ? context.palette.secondaryContainer
                                   : Colors.transparent,
                             ),
                             foregroundColor: WidgetStateProperty.resolveWith(
@@ -85,13 +81,13 @@ class PlannerDock extends StatelessWidget {
                                 ? Duration.zero
                                 : null,
                             textStyle: context.type.labelMedium,
-                            selectedRadius: 22,
-                            unselectedRadius: 22,
+                            selectedRadius: 32,
+                            unselectedRadius: 32,
                           ),
                           actions: [
                             for (final (index, item) in const [
                               (Icons.view_day_outlined, 'Briefing'),
-                              (Icons.checklist_rounded, 'Tasks & Tools'),
+                              (Icons.checklist_rounded, 'Tasks'),
                             ].indexed)
                               M3EButtonGroupAction(
                                 icon: Icon(item.$1),
